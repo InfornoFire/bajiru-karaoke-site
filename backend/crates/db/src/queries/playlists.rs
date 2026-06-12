@@ -111,13 +111,11 @@ pub async fn add_song(pool: &PgPool, playlist_id: i32, song_id: i32) -> Result<(
 }
 
 pub async fn remove_song(pool: &PgPool, playlist_id: i32, song_id: i32) -> Result<()> {
-    sqlx::query(
-        "DELETE FROM playlist_songs WHERE playlist_id = $1 AND song_id = $2",
-    )
-    .bind(playlist_id)
-    .bind(song_id)
-    .execute(pool)
-    .await
-    .map(|_| ())
-    .map_err(DbError::from)
+    sqlx::query("DELETE FROM playlist_songs WHERE playlist_id = $1 AND song_id = $2")
+        .bind(playlist_id)
+        .bind(song_id)
+        .execute(pool)
+        .await
+        .map(|_| ())
+        .map_err(DbError::from)
 }

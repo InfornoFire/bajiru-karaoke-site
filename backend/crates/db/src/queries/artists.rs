@@ -5,22 +5,18 @@ use sqlx::PgPool;
 type Result<T> = std::result::Result<T, DbError>;
 
 pub async fn get_by_id(pool: &PgPool, id: i32) -> Result<Option<Artist>> {
-    sqlx::query_as::<_, Artist>(
-        "SELECT id, title, description FROM artists WHERE id = $1",
-    )
-    .bind(id)
-    .fetch_optional(pool)
-    .await
-    .map_err(DbError::from)
+    sqlx::query_as::<_, Artist>("SELECT id, title, description FROM artists WHERE id = $1")
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+        .map_err(DbError::from)
 }
 
 pub async fn list(pool: &PgPool) -> Result<Vec<Artist>> {
-    sqlx::query_as::<_, Artist>(
-        "SELECT id, title, description FROM artists ORDER BY title",
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(DbError::from)
+    sqlx::query_as::<_, Artist>("SELECT id, title, description FROM artists ORDER BY title")
+        .fetch_all(pool)
+        .await
+        .map_err(DbError::from)
 }
 
 pub async fn create(pool: &PgPool, new: &NewArtist) -> Result<Artist> {

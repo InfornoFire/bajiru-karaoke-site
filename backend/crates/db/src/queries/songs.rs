@@ -73,14 +73,12 @@ pub async fn update(pool: &PgPool, id: i32, upd: &UpdateSong) -> Result<Option<S
 
 /// Increments play_count and stamps stream_date to the current time.
 pub async fn increment_play_count(pool: &PgPool, id: i32) -> Result<()> {
-    sqlx::query(
-        "UPDATE songs SET play_count = play_count + 1, stream_date = NOW() WHERE id = $1",
-    )
-    .bind(id)
-    .execute(pool)
-    .await
-    .map(|_| ())
-    .map_err(DbError::from)
+    sqlx::query("UPDATE songs SET play_count = play_count + 1, stream_date = NOW() WHERE id = $1")
+        .bind(id)
+        .execute(pool)
+        .await
+        .map(|_| ())
+        .map_err(DbError::from)
 }
 
 pub async fn delete(pool: &PgPool, id: i32) -> Result<bool> {
@@ -93,13 +91,11 @@ pub async fn delete(pool: &PgPool, id: i32) -> Result<bool> {
 }
 
 pub async fn get_singer_ids(pool: &PgPool, song_id: i32) -> Result<Vec<i32>> {
-    sqlx::query_scalar::<_, i32>(
-        "SELECT artist_id FROM song_singers WHERE song_id = $1",
-    )
-    .bind(song_id)
-    .fetch_all(pool)
-    .await
-    .map_err(DbError::from)
+    sqlx::query_scalar::<_, i32>("SELECT artist_id FROM song_singers WHERE song_id = $1")
+        .bind(song_id)
+        .fetch_all(pool)
+        .await
+        .map_err(DbError::from)
 }
 
 /// Replaces the full singer set for the given song within a transaction.
@@ -125,21 +121,15 @@ pub async fn set_singers(pool: &PgPool, song_id: i32, artist_ids: &[i32]) -> Res
 }
 
 pub async fn get_original_artist_ids(pool: &PgPool, song_id: i32) -> Result<Vec<i32>> {
-    sqlx::query_scalar::<_, i32>(
-        "SELECT artist_id FROM song_original_artists WHERE song_id = $1",
-    )
-    .bind(song_id)
-    .fetch_all(pool)
-    .await
-    .map_err(DbError::from)
+    sqlx::query_scalar::<_, i32>("SELECT artist_id FROM song_original_artists WHERE song_id = $1")
+        .bind(song_id)
+        .fetch_all(pool)
+        .await
+        .map_err(DbError::from)
 }
 
 /// Replaces the full original artist set for the given song within a transaction.
-pub async fn set_original_artists(
-    pool: &PgPool,
-    song_id: i32,
-    artist_ids: &[i32],
-) -> Result<()> {
+pub async fn set_original_artists(pool: &PgPool, song_id: i32, artist_ids: &[i32]) -> Result<()> {
     let mut tx = pool.begin().await.map_err(DbError::from)?;
     sqlx::query("DELETE FROM song_original_artists WHERE song_id = $1")
         .bind(song_id)

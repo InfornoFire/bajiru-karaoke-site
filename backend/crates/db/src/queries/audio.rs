@@ -13,13 +13,11 @@ pub async fn get_by_id(pool: &PgPool, id: i32) -> Result<Option<Audio>> {
 }
 
 pub async fn create(pool: &PgPool, new: &NewAudio) -> Result<Audio> {
-    sqlx::query_as::<_, Audio>(
-        "INSERT INTO audio (file_path) VALUES ($1) RETURNING id, file_path",
-    )
-    .bind(&new.file_path)
-    .fetch_one(pool)
-    .await
-    .map_err(DbError::from)
+    sqlx::query_as::<_, Audio>("INSERT INTO audio (file_path) VALUES ($1) RETURNING id, file_path")
+        .bind(&new.file_path)
+        .fetch_one(pool)
+        .await
+        .map_err(DbError::from)
 }
 
 pub async fn delete(pool: &PgPool, id: i32) -> Result<bool> {

@@ -5,13 +5,11 @@ use sqlx::PgPool;
 type Result<T> = std::result::Result<T, DbError>;
 
 pub async fn get_by_id(pool: &PgPool, id: i32) -> Result<Option<Video>> {
-    sqlx::query_as::<_, Video>(
-        "SELECT id, external_url FROM video WHERE id = $1",
-    )
-    .bind(id)
-    .fetch_optional(pool)
-    .await
-    .map_err(DbError::from)
+    sqlx::query_as::<_, Video>("SELECT id, external_url FROM video WHERE id = $1")
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+        .map_err(DbError::from)
 }
 
 pub async fn create(pool: &PgPool, new: &NewVideo) -> Result<Video> {

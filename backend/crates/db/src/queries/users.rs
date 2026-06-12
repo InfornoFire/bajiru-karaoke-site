@@ -5,13 +5,11 @@ use sqlx::PgPool;
 type Result<T> = std::result::Result<T, DbError>;
 
 pub async fn get_by_id(pool: &PgPool, id: i32) -> Result<Option<User>> {
-    sqlx::query_as::<_, User>(
-        "SELECT id, username, twitch_id, discord_id FROM users WHERE id = $1",
-    )
-    .bind(id)
-    .fetch_optional(pool)
-    .await
-    .map_err(DbError::from)
+    sqlx::query_as::<_, User>("SELECT id, username, twitch_id, discord_id FROM users WHERE id = $1")
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+        .map_err(DbError::from)
 }
 
 pub async fn get_by_twitch_id(pool: &PgPool, twitch_id: i64) -> Result<Option<User>> {
@@ -45,12 +43,10 @@ pub async fn get_by_username(pool: &PgPool, username: &str) -> Result<Option<Use
 }
 
 pub async fn list(pool: &PgPool) -> Result<Vec<User>> {
-    sqlx::query_as::<_, User>(
-        "SELECT id, username, twitch_id, discord_id FROM users ORDER BY id",
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(DbError::from)
+    sqlx::query_as::<_, User>("SELECT id, username, twitch_id, discord_id FROM users ORDER BY id")
+        .fetch_all(pool)
+        .await
+        .map_err(DbError::from)
 }
 
 pub async fn create(pool: &PgPool, new: &NewUser) -> Result<User> {
@@ -125,13 +121,11 @@ pub async fn delete(pool: &PgPool, id: i32) -> Result<bool> {
 }
 
 pub async fn get_favorite_song_ids(pool: &PgPool, user_id: i32) -> Result<Vec<i32>> {
-    sqlx::query_scalar::<_, i32>(
-        "SELECT song_id FROM user_favorite_songs WHERE user_id = $1",
-    )
-    .bind(user_id)
-    .fetch_all(pool)
-    .await
-    .map_err(DbError::from)
+    sqlx::query_scalar::<_, i32>("SELECT song_id FROM user_favorite_songs WHERE user_id = $1")
+        .bind(user_id)
+        .fetch_all(pool)
+        .await
+        .map_err(DbError::from)
 }
 
 pub async fn add_favorite_song(pool: &PgPool, user_id: i32, song_id: i32) -> Result<()> {
@@ -148,13 +142,11 @@ pub async fn add_favorite_song(pool: &PgPool, user_id: i32, song_id: i32) -> Res
 }
 
 pub async fn remove_favorite_song(pool: &PgPool, user_id: i32, song_id: i32) -> Result<()> {
-    sqlx::query(
-        "DELETE FROM user_favorite_songs WHERE user_id = $1 AND song_id = $2",
-    )
-    .bind(user_id)
-    .bind(song_id)
-    .execute(pool)
-    .await
-    .map(|_| ())
-    .map_err(DbError::from)
+    sqlx::query("DELETE FROM user_favorite_songs WHERE user_id = $1 AND song_id = $2")
+        .bind(user_id)
+        .bind(song_id)
+        .execute(pool)
+        .await
+        .map(|_| ())
+        .map_err(DbError::from)
 }

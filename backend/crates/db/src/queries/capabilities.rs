@@ -69,15 +69,13 @@ pub async fn add_to_user(pool: &PgPool, user_id: i32, capability_id: i32) -> Res
 }
 
 pub async fn remove_from_user(pool: &PgPool, user_id: i32, capability_id: i32) -> Result<()> {
-    sqlx::query(
-        "DELETE FROM user_capabilities WHERE user_id = $1 AND capability_id = $2",
-    )
-    .bind(user_id)
-    .bind(capability_id)
-    .execute(pool)
-    .await
-    .map(|_| ())
-    .map_err(DbError::from)
+    sqlx::query("DELETE FROM user_capabilities WHERE user_id = $1 AND capability_id = $2")
+        .bind(user_id)
+        .bind(capability_id)
+        .execute(pool)
+        .await
+        .map(|_| ())
+        .map_err(DbError::from)
 }
 
 pub async fn user_has(pool: &PgPool, user_id: i32, capability_id: i32) -> Result<bool> {

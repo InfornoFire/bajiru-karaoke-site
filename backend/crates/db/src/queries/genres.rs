@@ -32,14 +32,12 @@ pub async fn create(pool: &PgPool, new: &NewGenre) -> Result<Genre> {
 }
 
 pub async fn update(pool: &PgPool, id: i32, upd: &UpdateGenre) -> Result<Option<Genre>> {
-    sqlx::query_as::<_, Genre>(
-        "UPDATE genres SET title = $1 WHERE id = $2 RETURNING id, title",
-    )
-    .bind(&upd.title)
-    .bind(id)
-    .fetch_optional(pool)
-    .await
-    .map_err(DbError::from)
+    sqlx::query_as::<_, Genre>("UPDATE genres SET title = $1 WHERE id = $2 RETURNING id, title")
+        .bind(&upd.title)
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+        .map_err(DbError::from)
 }
 
 pub async fn delete(pool: &PgPool, id: i32) -> Result<bool> {
