@@ -12,7 +12,7 @@ axum = { version = "0.8", features = ["macros"] }
 sqlx = { version = "0.9", features = [
     "runtime-tokio",
     "tls-rustls-ring",
-    "postgres",
+    "mysql",
     "chrono",
     "macros",
 ] }
