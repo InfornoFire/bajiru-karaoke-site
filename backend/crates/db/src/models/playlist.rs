@@ -5,6 +5,7 @@ pub struct Playlist {
     pub id: i32,
     pub title: String,
     pub description: Option<String>,
+    pub kind: String,
     pub created_by: Option<i32>,
 }
 
@@ -12,6 +13,7 @@ pub struct Playlist {
 pub struct NewPlaylist {
     pub title: String,
     pub description: Option<String>,
+    pub kind: String,
     pub created_by: Option<i32>,
 }
 
@@ -19,4 +21,5 @@ pub struct NewPlaylist {
 pub struct UpdatePlaylist {
     pub title: String,
     pub description: Option<String>,
+    pub kind: String,
 }

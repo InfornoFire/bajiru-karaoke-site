@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
-pub struct Audio {
+pub struct Lyrics {
     pub id: i32,
-    pub file_path: String,
+    pub content: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NewAudio {
-    pub file_path: String,
+pub struct NewLyrics {
+    pub content: String,
 }

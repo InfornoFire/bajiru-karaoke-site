@@ -1,12 +1,12 @@
 use crate::error::DbError;
 use crate::models::playlist::{NewPlaylist, Playlist, UpdatePlaylist};
-use sqlx::PgPool;
+use sqlx::MySqlPool;
 
 type Result<T> = std::result::Result<T, DbError>;
 
-pub async fn get_by_id(pool: &PgPool, id: i32) -> Result<Option<Playlist>> {
+pub async fn get_by_id(pool: &MySqlPool, id: i32) -> Result<Option<Playlist>> {
     sqlx::query_as::<_, Playlist>(
-        "SELECT id, title, description, created_by FROM playlists WHERE id = $1",
+        "SELECT id, title, description, kind, created_by FROM playlists WHERE id = ?",
     )
     .bind(id)
     .fetch_optional(pool)
@@ -14,19 +14,19 @@ pub async fn get_by_id(pool: &PgPool, id: i32) -> Result<Option<Playlist>> {
     .map_err(DbError::from)
 }
 
-pub async fn list(pool: &PgPool) -> Result<Vec<Playlist>> {
+pub async fn list(pool: &MySqlPool) -> Result<Vec<Playlist>> {
     sqlx::query_as::<_, Playlist>(
-        "SELECT id, title, description, created_by FROM playlists ORDER BY id",
+        "SELECT id, title, description, kind, created_by FROM playlists ORDER BY id",
     )
     .fetch_all(pool)
     .await
     .map_err(DbError::from)
 }
 
-pub async fn list_by_user(pool: &PgPool, user_id: i32) -> Result<Vec<Playlist>> {
+pub async fn list_by_user(pool: &MySqlPool, user_id: i32) -> Result<Vec<Playlist>> {
     sqlx::query_as::<_, Playlist>(
-        "SELECT id, title, description, created_by FROM playlists \
-         WHERE created_by = $1 ORDER BY id",
+        "SELECT id, title, description, kind, created_by FROM playlists \
+         WHERE created_by = ? ORDER BY id",
     )
     .bind(user_id)
     .fetch_all(pool)
@@ -34,37 +34,51 @@ pub async fn list_by_user(pool: &PgPool, user_id: i32) -> Result<Vec<Playlist>> 
     .map_err(DbError::from)
 }
 
-pub async fn create(pool: &PgPool, new: &NewPlaylist) -> Result<Playlist> {
-    sqlx::query_as::<_, Playlist>(
-        "INSERT INTO playlists (title, description, created_by) \
-         VALUES ($1, $2, $3) \
-         RETURNING id, title, description, created_by",
+pub async fn create(pool: &MySqlPool, new: &NewPlaylist) -> Result<Playlist> {
+    let id = sqlx::query(
+        "INSERT INTO playlists (title, description, kind, created_by) VALUES (?, ?, ?, ?)",
     )
     .bind(&new.title)
     .bind(&new.description)
+    .bind(&new.kind)
     .bind(new.created_by)
-    .fetch_one(pool)
+    .execute(pool)
     .await
-    .map_err(DbError::from)
+    .map_err(DbError::from)?
+    .last_insert_id();
+    get_by_id(pool, id as i32).await?.ok_or(DbError::NotFound)
 }
 
-pub async fn update(pool: &PgPool, id: i32, upd: &UpdatePlaylist) -> Result<Option<Playlist>> {
-    sqlx::query_as::<_, Playlist>(
-        "UPDATE playlists SET title = $1, description = $2 WHERE id = $3 \
-         RETURNING id, title, description, created_by",
-    )
-    .bind(&upd.title)
-    .bind(&upd.description)
-    .bind(id)
-    .fetch_optional(pool)
-    .await
-    .map_err(DbError::from)
+pub async fn update(pool: &MySqlPool, id: i32, upd: &UpdatePlaylist) -> Result<Option<Playlist>> {
+    let affected =
+        sqlx::query("UPDATE playlists SET title = ?, description = ?, kind = ? WHERE id = ?")
+            .bind(&upd.title)
+            .bind(&upd.description)
+            .bind(&upd.kind)
+            .bind(id)
+            .execute(pool)
+            .await
+            .map_err(DbError::from)?
+            .rows_affected();
+    if affected == 0 {
+        return Ok(None);
+    }
+    get_by_id(pool, id).await
 }
 
-pub async fn get_song_ids(pool: &PgPool, playlist_id: i32) -> Result<Vec<i32>> {
+pub async fn delete(pool: &MySqlPool, id: i32) -> Result<bool> {
+    sqlx::query("DELETE FROM playlists WHERE id = ?")
+        .bind(id)
+        .execute(pool)
+        .await
+        .map(|r| r.rows_affected() > 0)
+        .map_err(DbError::from)
+}
+
+pub async fn get_performance_ids(pool: &MySqlPool, playlist_id: i32) -> Result<Vec<i32>> {
     sqlx::query_scalar::<_, i32>(
-        "SELECT song_id FROM playlist_songs \
-         WHERE playlist_id = $1 ORDER BY sort_order",
+        "SELECT performance_id FROM playlist_performances \
+         WHERE playlist_id = ? ORDER BY sort_order",
     )
     .bind(playlist_id)
     .fetch_all(pool)
@@ -72,21 +86,24 @@ pub async fn get_song_ids(pool: &PgPool, playlist_id: i32) -> Result<Vec<i32>> {
     .map_err(DbError::from)
 }
 
-/// Replaces all songs in the playlist, assigning sequential positions.
-pub async fn set_songs(pool: &PgPool, playlist_id: i32, song_ids: &[i32]) -> Result<()> {
+pub async fn set_performances(
+    pool: &MySqlPool,
+    playlist_id: i32,
+    performance_ids: &[i32],
+) -> Result<()> {
     let mut tx = pool.begin().await.map_err(DbError::from)?;
-    sqlx::query("DELETE FROM playlist_songs WHERE playlist_id = $1")
+    sqlx::query("DELETE FROM playlist_performances WHERE playlist_id = ?")
         .bind(playlist_id)
         .execute(&mut *tx)
         .await
         .map_err(DbError::from)?;
-    for (pos, &song_id) in song_ids.iter().enumerate() {
+    for (pos, &performance_id) in performance_ids.iter().enumerate() {
         sqlx::query(
-            "INSERT INTO playlist_songs (playlist_id, song_id, sort_order) \
-             VALUES ($1, $2, $3)",
+            "INSERT INTO playlist_performances (playlist_id, performance_id, sort_order) \
+             VALUES (?, ?, ?)",
         )
         .bind(playlist_id)
-        .bind(song_id)
+        .bind(performance_id)
         .bind(pos as i32)
         .execute(&mut *tx)
         .await
@@ -95,25 +112,33 @@ pub async fn set_songs(pool: &PgPool, playlist_id: i32, song_ids: &[i32]) -> Res
     tx.commit().await.map_err(DbError::from)
 }
 
-pub async fn add_song(pool: &PgPool, playlist_id: i32, song_id: i32) -> Result<()> {
+pub async fn add_performance(
+    pool: &MySqlPool,
+    playlist_id: i32,
+    performance_id: i32,
+) -> Result<()> {
     sqlx::query(
-        "INSERT INTO playlist_songs (playlist_id, song_id, sort_order) \
-         VALUES ($1, $2, \
-             COALESCE((SELECT MAX(sort_order) + 1 FROM playlist_songs WHERE playlist_id = $1), 0) \
-         ) ON CONFLICT DO NOTHING",
+        "INSERT IGNORE INTO playlist_performances (playlist_id, performance_id, sort_order) \
+         VALUES (?, ?, COALESCE(\
+             (SELECT MAX(sort_order) + 1 FROM playlist_performances WHERE playlist_id = ?), 0))",
     )
     .bind(playlist_id)
-    .bind(song_id)
+    .bind(performance_id)
+    .bind(playlist_id)
     .execute(pool)
     .await
     .map(|_| ())
     .map_err(DbError::from)
 }
 
-pub async fn remove_song(pool: &PgPool, playlist_id: i32, song_id: i32) -> Result<()> {
-    sqlx::query("DELETE FROM playlist_songs WHERE playlist_id = $1 AND song_id = $2")
+pub async fn remove_performance(
+    pool: &MySqlPool,
+    playlist_id: i32,
+    performance_id: i32,
+) -> Result<()> {
+    sqlx::query("DELETE FROM playlist_performances WHERE playlist_id = ? AND performance_id = ?")
         .bind(playlist_id)
-        .bind(song_id)
+        .bind(performance_id)
         .execute(pool)
         .await
         .map(|_| ())
