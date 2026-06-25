@@ -30,7 +30,8 @@ CREATE TABLE IF NOT EXISTS artists (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     name VARCHAR(256) NOT NULL,
     description TEXT NULL,
-    PRIMARY KEY (id)
+    PRIMARY KEY (id),
+    INDEX (name)
 ) ENGINE = InnoDB;
 
 -- Tags
@@ -83,7 +84,8 @@ CREATE TABLE IF NOT EXISTS songs (
     lyrics_id INT UNSIGNED NULL REFERENCES lyrics (id),
     date_added DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    INDEX (title)
+    INDEX (title),
+    INDEX (date_added)
 ) ENGINE = InnoDB;
 
 -- Song <-> Image (M2M)
@@ -97,14 +99,16 @@ CREATE TABLE IF NOT EXISTS song_images (
 CREATE TABLE IF NOT EXISTS song_original_artists (
     song_id INT UNSIGNED NOT NULL REFERENCES songs (id),
     artist_id INT UNSIGNED NOT NULL REFERENCES artists (id),
-    PRIMARY KEY (song_id, artist_id)
+    PRIMARY KEY (song_id, artist_id),
+    INDEX (artist_id)
 ) ENGINE = InnoDB;
 
 -- Song <-> Tag (M2M)
 CREATE TABLE IF NOT EXISTS song_tags (
     song_id INT UNSIGNED NOT NULL REFERENCES songs (id),
     tag_id INT UNSIGNED NOT NULL REFERENCES tags (id),
-    PRIMARY KEY (song_id, tag_id)
+    PRIMARY KEY (song_id, tag_id),
+    INDEX (tag_id)
 ) ENGINE = InnoDB;
 
 -- User <-> Favorite Song (M2M)
@@ -135,14 +139,16 @@ CREATE TABLE IF NOT EXISTS performances (
 CREATE TABLE IF NOT EXISTS performance_songs (
     performance_id INT UNSIGNED NOT NULL REFERENCES performances (id),
     song_id INT UNSIGNED NOT NULL REFERENCES songs (id),
-    PRIMARY KEY (performance_id, song_id)
+    PRIMARY KEY (performance_id, song_id),
+    INDEX (song_id)
 ) ENGINE = InnoDB;
 
 -- Performance <-> Singer (M2M)
 CREATE TABLE IF NOT EXISTS performance_singers (
     performance_id INT UNSIGNED NOT NULL REFERENCES performances (id),
     artist_id INT UNSIGNED NOT NULL REFERENCES artists (id),
-    PRIMARY KEY (performance_id, artist_id)
+    PRIMARY KEY (performance_id, artist_id),
+    INDEX (artist_id)
 ) ENGINE = InnoDB;
 
 -- Performance audios
@@ -170,14 +176,6 @@ CREATE TABLE IF NOT EXISTS playlist_performances (
     playlist_id INT UNSIGNED NOT NULL REFERENCES playlists (id),
     performance_id INT UNSIGNED NOT NULL REFERENCES performances (id),
     sort_order INT NOT NULL DEFAULT 0,
-    PRIMARY KEY (playlist_id, performance_id)
+    PRIMARY KEY (playlist_id, performance_id),
+    INDEX (performance_id)
 ) ENGINE = InnoDB;
-
-CREATE INDEX idx_artists_name ON artists (name);
-
-CREATE INDEX idx_songs_date_added ON songs (date_added);
-CREATE INDEX idx_song_tags_tag ON song_tags (tag_id);
-CREATE INDEX idx_performance_songs_song ON performance_songs (song_id);
-CREATE INDEX idx_song_original_artists_artist ON song_original_artists (artist_id);
-CREATE INDEX idx_performance_singers_artist ON performance_singers (artist_id);
-CREATE INDEX idx_playlist_performances_performance ON playlist_performances (performance_id);
