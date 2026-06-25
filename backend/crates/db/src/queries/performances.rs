@@ -111,3 +111,37 @@ pub async fn set_songs(pool: &MySqlPool, performance_id: i32, song_ids: &[i32]) 
     }
     tx.commit().await.map_err(DbError::from)
 }
+
+pub async fn get_singer_ids(pool: &MySqlPool, performance_id: i32) -> Result<Vec<i32>> {
+    sqlx::query_scalar::<_, i32>(
+        "SELECT artist_id FROM performance_singers WHERE performance_id = ?",
+    )
+    .bind(performance_id)
+    .fetch_all(pool)
+    .await
+    .map_err(DbError::from)
+}
+
+pub async fn set_singers(
+    pool: &MySqlPool,
+    performance_id: i32,
+    artist_ids: &[i32],
+) -> Result<()> {
+    let mut tx = pool.begin().await.map_err(DbError::from)?;
+    sqlx::query("DELETE FROM performance_singers WHERE performance_id = ?")
+        .bind(performance_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(DbError::from)?;
+    for &artist_id in artist_ids {
+        sqlx::query(
+            "INSERT IGNORE INTO performance_singers (performance_id, artist_id) VALUES (?, ?)",
+        )
+        .bind(performance_id)
+        .bind(artist_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(DbError::from)?;
+    }
+    tx.commit().await.map_err(DbError::from)
+}
