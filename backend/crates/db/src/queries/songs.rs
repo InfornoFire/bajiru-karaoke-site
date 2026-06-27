@@ -79,7 +79,7 @@ pub async fn set_original_artists(
         .await
         .map_err(DbError::from)?;
     for &artist_id in artist_ids {
-        sqlx::query("INSERT IGNORE INTO song_original_artists (song_id, artist_id) VALUES (?, ?)")
+        sqlx::query("INSERT INTO song_original_artists (song_id, artist_id) VALUES (?, ?)")
             .bind(song_id)
             .bind(artist_id)
             .execute(&mut *tx)
@@ -105,7 +105,7 @@ pub async fn set_tags(pool: &MySqlPool, song_id: u32, tag_ids: &[u32]) -> Result
         .await
         .map_err(DbError::from)?;
     for &tag_id in tag_ids {
-        sqlx::query("INSERT IGNORE INTO song_tags (song_id, tag_id) VALUES (?, ?)")
+        sqlx::query("INSERT INTO song_tags (song_id, tag_id) VALUES (?, ?)")
             .bind(song_id)
             .bind(tag_id)
             .execute(&mut *tx)
@@ -131,7 +131,7 @@ pub async fn set_images(pool: &MySqlPool, song_id: u32, image_ids: &[u32]) -> Re
         .await
         .map_err(DbError::from)?;
     for &image_id in image_ids {
-        sqlx::query("INSERT IGNORE INTO song_images (song_id, image_id) VALUES (?, ?)")
+        sqlx::query("INSERT INTO song_images (song_id, image_id) VALUES (?, ?)")
             .bind(song_id)
             .bind(image_id)
             .execute(&mut *tx)

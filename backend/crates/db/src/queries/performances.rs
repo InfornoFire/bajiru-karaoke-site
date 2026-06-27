@@ -102,7 +102,7 @@ pub async fn set_songs(pool: &MySqlPool, performance_id: u32, song_ids: &[u32]) 
         .await
         .map_err(DbError::from)?;
     for &song_id in song_ids {
-        sqlx::query("INSERT IGNORE INTO performance_songs (performance_id, song_id) VALUES (?, ?)")
+        sqlx::query("INSERT INTO performance_songs (performance_id, song_id) VALUES (?, ?)")
             .bind(performance_id)
             .bind(song_id)
             .execute(&mut *tx)
@@ -135,7 +135,7 @@ pub async fn set_singers(
         .map_err(DbError::from)?;
     for &artist_id in artist_ids {
         sqlx::query(
-            "INSERT IGNORE INTO performance_singers (performance_id, artist_id) VALUES (?, ?)",
+            "INSERT INTO performance_singers (performance_id, artist_id) VALUES (?, ?)",
         )
         .bind(performance_id)
         .bind(artist_id)
