@@ -2,11 +2,11 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
 pub struct Playlist {
-    pub id: i32,
+    pub id: u32,
     pub title: String,
     pub description: Option<String>,
     pub kind: String,
-    pub created_by: Option<i32>,
+    pub created_by: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -14,7 +14,7 @@ pub struct NewPlaylist {
     pub title: String,
     pub description: Option<String>,
     pub kind: String,
-    pub created_by: Option<i32>,
+    pub created_by: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

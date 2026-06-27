@@ -4,7 +4,7 @@ use sqlx::MySqlPool;
 
 type Result<T> = std::result::Result<T, DbError>;
 
-pub async fn get_by_id(pool: &MySqlPool, id: i32) -> Result<Option<Performance>> {
+pub async fn get_by_id(pool: &MySqlPool, id: u32) -> Result<Option<Performance>> {
     sqlx::query_as::<_, Performance>(
         "SELECT id, created_by, title, lyrics_id, play_count, duration, performance_date \
          FROM performances WHERE id = ?",
@@ -40,12 +40,12 @@ pub async fn create(pool: &MySqlPool, new: &NewPerformance) -> Result<Performanc
     .await
     .map_err(DbError::from)?
     .last_insert_id();
-    get_by_id(pool, id as i32).await?.ok_or(DbError::NotFound)
+    get_by_id(pool, id as u32).await?.ok_or(DbError::NotFound)
 }
 
 pub async fn update(
     pool: &MySqlPool,
-    id: i32,
+    id: u32,
     upd: &UpdatePerformance,
 ) -> Result<Option<Performance>> {
     let affected = sqlx::query(
@@ -68,7 +68,7 @@ pub async fn update(
     get_by_id(pool, id).await
 }
 
-pub async fn delete(pool: &MySqlPool, id: i32) -> Result<bool> {
+pub async fn delete(pool: &MySqlPool, id: u32) -> Result<bool> {
     sqlx::query("DELETE FROM performances WHERE id = ?")
         .bind(id)
         .execute(pool)
@@ -77,7 +77,7 @@ pub async fn delete(pool: &MySqlPool, id: i32) -> Result<bool> {
         .map_err(DbError::from)
 }
 
-pub async fn increment_play_count(pool: &MySqlPool, id: i32) -> Result<()> {
+pub async fn increment_play_count(pool: &MySqlPool, id: u32) -> Result<()> {
     sqlx::query("UPDATE performances SET play_count = play_count + 1 WHERE id = ?")
         .bind(id)
         .execute(pool)
@@ -86,15 +86,15 @@ pub async fn increment_play_count(pool: &MySqlPool, id: i32) -> Result<()> {
         .map_err(DbError::from)
 }
 
-pub async fn get_song_ids(pool: &MySqlPool, performance_id: i32) -> Result<Vec<i32>> {
-    sqlx::query_scalar::<_, i32>("SELECT song_id FROM performance_songs WHERE performance_id = ?")
+pub async fn get_song_ids(pool: &MySqlPool, performance_id: u32) -> Result<Vec<u32>> {
+    sqlx::query_scalar::<_, u32>("SELECT song_id FROM performance_songs WHERE performance_id = ?")
         .bind(performance_id)
         .fetch_all(pool)
         .await
         .map_err(DbError::from)
 }
 
-pub async fn set_songs(pool: &MySqlPool, performance_id: i32, song_ids: &[i32]) -> Result<()> {
+pub async fn set_songs(pool: &MySqlPool, performance_id: u32, song_ids: &[u32]) -> Result<()> {
     let mut tx = pool.begin().await.map_err(DbError::from)?;
     sqlx::query("DELETE FROM performance_songs WHERE performance_id = ?")
         .bind(performance_id)
@@ -112,8 +112,8 @@ pub async fn set_songs(pool: &MySqlPool, performance_id: i32, song_ids: &[i32]) 
     tx.commit().await.map_err(DbError::from)
 }
 
-pub async fn get_singer_ids(pool: &MySqlPool, performance_id: i32) -> Result<Vec<i32>> {
-    sqlx::query_scalar::<_, i32>(
+pub async fn get_singer_ids(pool: &MySqlPool, performance_id: u32) -> Result<Vec<u32>> {
+    sqlx::query_scalar::<_, u32>(
         "SELECT artist_id FROM performance_singers WHERE performance_id = ?",
     )
     .bind(performance_id)
@@ -124,8 +124,8 @@ pub async fn get_singer_ids(pool: &MySqlPool, performance_id: i32) -> Result<Vec
 
 pub async fn set_singers(
     pool: &MySqlPool,
-    performance_id: i32,
-    artist_ids: &[i32],
+    performance_id: u32,
+    artist_ids: &[u32],
 ) -> Result<()> {
     let mut tx = pool.begin().await.map_err(DbError::from)?;
     sqlx::query("DELETE FROM performance_singers WHERE performance_id = ?")

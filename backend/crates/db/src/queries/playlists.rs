@@ -4,7 +4,7 @@ use sqlx::MySqlPool;
 
 type Result<T> = std::result::Result<T, DbError>;
 
-pub async fn get_by_id(pool: &MySqlPool, id: i32) -> Result<Option<Playlist>> {
+pub async fn get_by_id(pool: &MySqlPool, id: u32) -> Result<Option<Playlist>> {
     sqlx::query_as::<_, Playlist>(
         "SELECT id, title, description, kind, created_by FROM playlists WHERE id = ?",
     )
@@ -23,7 +23,7 @@ pub async fn list(pool: &MySqlPool) -> Result<Vec<Playlist>> {
     .map_err(DbError::from)
 }
 
-pub async fn list_by_user(pool: &MySqlPool, user_id: i32) -> Result<Vec<Playlist>> {
+pub async fn list_by_user(pool: &MySqlPool, user_id: u32) -> Result<Vec<Playlist>> {
     sqlx::query_as::<_, Playlist>(
         "SELECT id, title, description, kind, created_by FROM playlists \
          WHERE created_by = ? ORDER BY id",
@@ -46,10 +46,10 @@ pub async fn create(pool: &MySqlPool, new: &NewPlaylist) -> Result<Playlist> {
     .await
     .map_err(DbError::from)?
     .last_insert_id();
-    get_by_id(pool, id as i32).await?.ok_or(DbError::NotFound)
+    get_by_id(pool, id as u32).await?.ok_or(DbError::NotFound)
 }
 
-pub async fn update(pool: &MySqlPool, id: i32, upd: &UpdatePlaylist) -> Result<Option<Playlist>> {
+pub async fn update(pool: &MySqlPool, id: u32, upd: &UpdatePlaylist) -> Result<Option<Playlist>> {
     let affected =
         sqlx::query("UPDATE playlists SET title = ?, description = ?, kind = ? WHERE id = ?")
             .bind(&upd.title)
@@ -66,7 +66,7 @@ pub async fn update(pool: &MySqlPool, id: i32, upd: &UpdatePlaylist) -> Result<O
     get_by_id(pool, id).await
 }
 
-pub async fn delete(pool: &MySqlPool, id: i32) -> Result<bool> {
+pub async fn delete(pool: &MySqlPool, id: u32) -> Result<bool> {
     sqlx::query("DELETE FROM playlists WHERE id = ?")
         .bind(id)
         .execute(pool)
@@ -75,8 +75,8 @@ pub async fn delete(pool: &MySqlPool, id: i32) -> Result<bool> {
         .map_err(DbError::from)
 }
 
-pub async fn get_performance_ids(pool: &MySqlPool, playlist_id: i32) -> Result<Vec<i32>> {
-    sqlx::query_scalar::<_, i32>(
+pub async fn get_performance_ids(pool: &MySqlPool, playlist_id: u32) -> Result<Vec<u32>> {
+    sqlx::query_scalar::<_, u32>(
         "SELECT performance_id FROM playlist_performances \
          WHERE playlist_id = ? ORDER BY sort_order",
     )
@@ -88,8 +88,8 @@ pub async fn get_performance_ids(pool: &MySqlPool, playlist_id: i32) -> Result<V
 
 pub async fn set_performances(
     pool: &MySqlPool,
-    playlist_id: i32,
-    performance_ids: &[i32],
+    playlist_id: u32,
+    performance_ids: &[u32],
 ) -> Result<()> {
     let mut tx = pool.begin().await.map_err(DbError::from)?;
     sqlx::query("DELETE FROM playlist_performances WHERE playlist_id = ?")
@@ -104,7 +104,7 @@ pub async fn set_performances(
         )
         .bind(playlist_id)
         .bind(performance_id)
-        .bind(pos as i32)
+        .bind(pos as u32)
         .execute(&mut *tx)
         .await
         .map_err(DbError::from)?;
@@ -114,8 +114,8 @@ pub async fn set_performances(
 
 pub async fn add_performance(
     pool: &MySqlPool,
-    playlist_id: i32,
-    performance_id: i32,
+    playlist_id: u32,
+    performance_id: u32,
 ) -> Result<()> {
     sqlx::query(
         "INSERT IGNORE INTO playlist_performances (playlist_id, performance_id, sort_order) \
@@ -133,8 +133,8 @@ pub async fn add_performance(
 
 pub async fn remove_performance(
     pool: &MySqlPool,
-    playlist_id: i32,
-    performance_id: i32,
+    playlist_id: u32,
+    performance_id: u32,
 ) -> Result<()> {
     sqlx::query("DELETE FROM playlist_performances WHERE playlist_id = ? AND performance_id = ?")
         .bind(playlist_id)

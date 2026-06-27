@@ -4,7 +4,7 @@ use sqlx::MySqlPool;
 
 type Result<T> = std::result::Result<T, DbError>;
 
-pub async fn get_by_id(pool: &MySqlPool, id: i32) -> Result<Option<User>> {
+pub async fn get_by_id(pool: &MySqlPool, id: u32) -> Result<Option<User>> {
     sqlx::query_as::<_, User>("SELECT id, username, twitch_id, discord_id FROM users WHERE id = ?")
         .bind(id)
         .fetch_optional(pool)
@@ -12,7 +12,7 @@ pub async fn get_by_id(pool: &MySqlPool, id: i32) -> Result<Option<User>> {
         .map_err(DbError::from)
 }
 
-pub async fn get_by_twitch_id(pool: &MySqlPool, twitch_id: i64) -> Result<Option<User>> {
+pub async fn get_by_twitch_id(pool: &MySqlPool, twitch_id: u64) -> Result<Option<User>> {
     sqlx::query_as::<_, User>(
         "SELECT id, username, twitch_id, discord_id FROM users WHERE twitch_id = ?",
     )
@@ -22,7 +22,7 @@ pub async fn get_by_twitch_id(pool: &MySqlPool, twitch_id: i64) -> Result<Option
     .map_err(DbError::from)
 }
 
-pub async fn get_by_discord_id(pool: &MySqlPool, discord_id: i64) -> Result<Option<User>> {
+pub async fn get_by_discord_id(pool: &MySqlPool, discord_id: u64) -> Result<Option<User>> {
     sqlx::query_as::<_, User>(
         "SELECT id, username, twitch_id, discord_id FROM users WHERE discord_id = ?",
     )
@@ -58,7 +58,7 @@ pub async fn create(pool: &MySqlPool, new: &NewUser) -> Result<User> {
         .await
         .map_err(DbError::from)?
         .last_insert_id();
-    get_by_id(pool, id as i32).await?.ok_or(DbError::NotFound)
+    get_by_id(pool, id as u32).await?.ok_or(DbError::NotFound)
 }
 
 pub async fn upsert_by_twitch(pool: &MySqlPool, new: &NewUser) -> Result<User> {
@@ -93,7 +93,7 @@ pub async fn upsert_by_discord(pool: &MySqlPool, new: &NewUser) -> Result<User> 
         .ok_or(DbError::NotFound)
 }
 
-pub async fn update(pool: &MySqlPool, id: i32, upd: &UpdateUser) -> Result<Option<User>> {
+pub async fn update(pool: &MySqlPool, id: u32, upd: &UpdateUser) -> Result<Option<User>> {
     let affected =
         sqlx::query("UPDATE users SET username = ?, twitch_id = ?, discord_id = ? WHERE id = ?")
             .bind(&upd.username)
@@ -110,7 +110,7 @@ pub async fn update(pool: &MySqlPool, id: i32, upd: &UpdateUser) -> Result<Optio
     get_by_id(pool, id).await
 }
 
-pub async fn delete(pool: &MySqlPool, id: i32) -> Result<bool> {
+pub async fn delete(pool: &MySqlPool, id: u32) -> Result<bool> {
     sqlx::query("DELETE FROM users WHERE id = ?")
         .bind(id)
         .execute(pool)
@@ -119,15 +119,15 @@ pub async fn delete(pool: &MySqlPool, id: i32) -> Result<bool> {
         .map_err(DbError::from)
 }
 
-pub async fn get_favorite_song_ids(pool: &MySqlPool, user_id: i32) -> Result<Vec<i32>> {
-    sqlx::query_scalar::<_, i32>("SELECT song_id FROM user_favorite_songs WHERE user_id = ?")
+pub async fn get_favorite_song_ids(pool: &MySqlPool, user_id: u32) -> Result<Vec<u32>> {
+    sqlx::query_scalar::<_, u32>("SELECT song_id FROM user_favorite_songs WHERE user_id = ?")
         .bind(user_id)
         .fetch_all(pool)
         .await
         .map_err(DbError::from)
 }
 
-pub async fn add_favorite_song(pool: &MySqlPool, user_id: i32, song_id: i32) -> Result<()> {
+pub async fn add_favorite_song(pool: &MySqlPool, user_id: u32, song_id: u32) -> Result<()> {
     sqlx::query("INSERT IGNORE INTO user_favorite_songs (user_id, song_id) VALUES (?, ?)")
         .bind(user_id)
         .bind(song_id)
@@ -137,7 +137,7 @@ pub async fn add_favorite_song(pool: &MySqlPool, user_id: i32, song_id: i32) -> 
         .map_err(DbError::from)
 }
 
-pub async fn remove_favorite_song(pool: &MySqlPool, user_id: i32, song_id: i32) -> Result<()> {
+pub async fn remove_favorite_song(pool: &MySqlPool, user_id: u32, song_id: u32) -> Result<()> {
     sqlx::query("DELETE FROM user_favorite_songs WHERE user_id = ? AND song_id = ?")
         .bind(user_id)
         .bind(song_id)

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
 pub struct Image {
-    pub id: i32,
+    pub id: u32,
     pub public_url: String,
     pub internal_path: Option<String>,
     pub credits: Option<String>,

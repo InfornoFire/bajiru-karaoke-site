@@ -4,7 +4,7 @@ use sqlx::MySqlPool;
 
 type Result<T> = std::result::Result<T, DbError>;
 
-pub async fn get_by_id(pool: &MySqlPool, id: i32) -> Result<Option<Tag>> {
+pub async fn get_by_id(pool: &MySqlPool, id: u32) -> Result<Option<Tag>> {
     sqlx::query_as::<_, Tag>("SELECT id, name, kind FROM tags WHERE id = ?")
         .bind(id)
         .fetch_optional(pool)
@@ -41,7 +41,7 @@ pub async fn get_or_create(pool: &MySqlPool, new: &NewTag) -> Result<Tag> {
         .map_err(DbError::from)
 }
 
-pub async fn delete(pool: &MySqlPool, id: i32) -> Result<bool> {
+pub async fn delete(pool: &MySqlPool, id: u32) -> Result<bool> {
     sqlx::query("DELETE FROM tags WHERE id = ?")
         .bind(id)
         .execute(pool)

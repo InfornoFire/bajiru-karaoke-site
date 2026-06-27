@@ -4,7 +4,7 @@ use sqlx::MySqlPool;
 
 type Result<T> = std::result::Result<T, DbError>;
 
-pub async fn get_by_id(pool: &MySqlPool, id: i32) -> Result<Option<Image>> {
+pub async fn get_by_id(pool: &MySqlPool, id: u32) -> Result<Option<Image>> {
     sqlx::query_as::<_, Image>(
         "SELECT id, public_url, internal_path, credits FROM images WHERE id = ?",
     )
@@ -24,10 +24,10 @@ pub async fn create(pool: &MySqlPool, new: &NewImage) -> Result<Image> {
             .await
             .map_err(DbError::from)?
             .last_insert_id();
-    get_by_id(pool, id as i32).await?.ok_or(DbError::NotFound)
+    get_by_id(pool, id as u32).await?.ok_or(DbError::NotFound)
 }
 
-pub async fn update(pool: &MySqlPool, id: i32, upd: &UpdateImage) -> Result<Option<Image>> {
+pub async fn update(pool: &MySqlPool, id: u32, upd: &UpdateImage) -> Result<Option<Image>> {
     let affected = sqlx::query(
         "UPDATE images SET public_url = ?, internal_path = ?, credits = ? WHERE id = ?",
     )
@@ -45,7 +45,7 @@ pub async fn update(pool: &MySqlPool, id: i32, upd: &UpdateImage) -> Result<Opti
     get_by_id(pool, id).await
 }
 
-pub async fn delete(pool: &MySqlPool, id: i32) -> Result<bool> {
+pub async fn delete(pool: &MySqlPool, id: u32) -> Result<bool> {
     sqlx::query("DELETE FROM images WHERE id = ?")
         .bind(id)
         .execute(pool)

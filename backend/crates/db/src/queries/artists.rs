@@ -4,7 +4,7 @@ use sqlx::MySqlPool;
 
 type Result<T> = std::result::Result<T, DbError>;
 
-pub async fn get_by_id(pool: &MySqlPool, id: i32) -> Result<Option<Artist>> {
+pub async fn get_by_id(pool: &MySqlPool, id: u32) -> Result<Option<Artist>> {
     sqlx::query_as::<_, Artist>("SELECT id, name, description FROM artists WHERE id = ?")
         .bind(id)
         .fetch_optional(pool)
@@ -27,10 +27,10 @@ pub async fn create(pool: &MySqlPool, new: &NewArtist) -> Result<Artist> {
         .await
         .map_err(DbError::from)?
         .last_insert_id();
-    get_by_id(pool, id as i32).await?.ok_or(DbError::NotFound)
+    get_by_id(pool, id as u32).await?.ok_or(DbError::NotFound)
 }
 
-pub async fn update(pool: &MySqlPool, id: i32, upd: &UpdateArtist) -> Result<Option<Artist>> {
+pub async fn update(pool: &MySqlPool, id: u32, upd: &UpdateArtist) -> Result<Option<Artist>> {
     let affected = sqlx::query("UPDATE artists SET name = ?, description = ? WHERE id = ?")
         .bind(&upd.name)
         .bind(&upd.description)
@@ -45,7 +45,7 @@ pub async fn update(pool: &MySqlPool, id: i32, upd: &UpdateArtist) -> Result<Opt
     get_by_id(pool, id).await
 }
 
-pub async fn delete(pool: &MySqlPool, id: i32) -> Result<bool> {
+pub async fn delete(pool: &MySqlPool, id: u32) -> Result<bool> {
     sqlx::query("DELETE FROM artists WHERE id = ?")
         .bind(id)
         .execute(pool)

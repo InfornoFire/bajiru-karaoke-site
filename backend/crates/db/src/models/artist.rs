@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
 pub struct Artist {
-    pub id: i32,
+    pub id: u32,
     pub name: String,
     pub description: Option<String>,
 }
