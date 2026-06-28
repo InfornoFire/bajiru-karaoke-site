@@ -1,0 +1,4 @@
+[sqlfluff]
+dialect = mariadb
+exclude_rules = RF04
+max_line_length = 120
