@@ -1,5 +1,7 @@
 use crate::error::DbError;
+use crate::models::artist::Artist;
 use crate::models::performance::{NewPerformance, Performance, UpdatePerformance};
+use crate::models::song::Song;
 use sqlx::MySqlPool;
 
 type Result<T> = std::result::Result<T, DbError>;
@@ -50,11 +52,10 @@ pub async fn update(
 ) -> Result<Option<Performance>> {
     let affected = sqlx::query(
         "UPDATE performances \
-         SET title = ?, lyrics_id = ?, duration = ?, performance_date = ? \
+         SET title = ?, duration = ?, performance_date = ? \
          WHERE id = ?",
     )
     .bind(&upd.title)
-    .bind(upd.lyrics_id)
     .bind(upd.duration)
     .bind(upd.performance_date)
     .bind(id)
@@ -66,6 +67,35 @@ pub async fn update(
         return Ok(None);
     }
     get_by_id(pool, id).await
+}
+
+pub async fn update_lyrics_id(pool: &MySqlPool, id: u32, lyrics_id: Option<u32>) -> Result<()> {
+    sqlx::query("UPDATE performances SET lyrics_id = ? WHERE id = ?")
+        .bind(lyrics_id)
+        .bind(id)
+        .execute(pool)
+        .await
+        .map(|_| ())
+        .map_err(DbError::from)
+}
+
+pub async fn get_fallback_song_lyrics(
+    pool: &MySqlPool,
+    performance_id: u32,
+) -> Result<Option<String>> {
+    sqlx::query_scalar::<_, String>(
+        "SELECT l.content \
+         FROM lyrics l \
+         JOIN songs s ON s.lyrics_id = l.id \
+         JOIN performance_songs ps ON ps.song_id = s.id \
+         WHERE ps.performance_id = ? \
+         ORDER BY ps.song_id \
+         LIMIT 1",
+    )
+    .bind(performance_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(DbError::from)
 }
 
 pub async fn delete(pool: &MySqlPool, id: u32) -> Result<bool> {
@@ -86,12 +116,17 @@ pub async fn increment_play_count(pool: &MySqlPool, id: u32) -> Result<()> {
         .map_err(DbError::from)
 }
 
-pub async fn get_song_ids(pool: &MySqlPool, performance_id: u32) -> Result<Vec<u32>> {
-    sqlx::query_scalar::<_, u32>("SELECT song_id FROM performance_songs WHERE performance_id = ?")
-        .bind(performance_id)
-        .fetch_all(pool)
-        .await
-        .map_err(DbError::from)
+pub async fn get_songs(pool: &MySqlPool, performance_id: u32) -> Result<Vec<Song>> {
+    sqlx::query_as::<_, Song>(
+        "SELECT s.id, s.title, s.created_by, s.lyrics_id, s.date_added \
+         FROM songs s \
+         JOIN performance_songs ps ON ps.song_id = s.id \
+         WHERE ps.performance_id = ?",
+    )
+    .bind(performance_id)
+    .fetch_all(pool)
+    .await
+    .map_err(DbError::from)
 }
 
 pub async fn set_songs(pool: &MySqlPool, performance_id: u32, song_ids: &[u32]) -> Result<()> {
@@ -112,9 +147,12 @@ pub async fn set_songs(pool: &MySqlPool, performance_id: u32, song_ids: &[u32]) 
     tx.commit().await.map_err(DbError::from)
 }
 
-pub async fn get_singer_ids(pool: &MySqlPool, performance_id: u32) -> Result<Vec<u32>> {
-    sqlx::query_scalar::<_, u32>(
-        "SELECT artist_id FROM performance_singers WHERE performance_id = ?",
+pub async fn get_singers(pool: &MySqlPool, performance_id: u32) -> Result<Vec<Artist>> {
+    sqlx::query_as::<_, Artist>(
+        "SELECT a.id, a.name, a.description \
+         FROM artists a \
+         JOIN performance_singers ps ON ps.artist_id = a.id \
+         WHERE ps.performance_id = ?",
     )
     .bind(performance_id)
     .fetch_all(pool)
@@ -122,11 +160,7 @@ pub async fn get_singer_ids(pool: &MySqlPool, performance_id: u32) -> Result<Vec
     .map_err(DbError::from)
 }
 
-pub async fn set_singers(
-    pool: &MySqlPool,
-    performance_id: u32,
-    artist_ids: &[u32],
-) -> Result<()> {
+pub async fn set_singers(pool: &MySqlPool, performance_id: u32, artist_ids: &[u32]) -> Result<()> {
     let mut tx = pool.begin().await.map_err(DbError::from)?;
     sqlx::query("DELETE FROM performance_singers WHERE performance_id = ?")
         .bind(performance_id)
@@ -134,14 +168,12 @@ pub async fn set_singers(
         .await
         .map_err(DbError::from)?;
     for &artist_id in artist_ids {
-        sqlx::query(
-            "INSERT INTO performance_singers (performance_id, artist_id) VALUES (?, ?)",
-        )
-        .bind(performance_id)
-        .bind(artist_id)
-        .execute(&mut *tx)
-        .await
-        .map_err(DbError::from)?;
+        sqlx::query("INSERT INTO performance_singers (performance_id, artist_id) VALUES (?, ?)")
+            .bind(performance_id)
+            .bind(artist_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(DbError::from)?;
     }
     tx.commit().await.map_err(DbError::from)
 }

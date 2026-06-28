@@ -24,7 +24,6 @@ pub struct NewPerformance {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdatePerformance {
     pub title: Option<String>,
-    pub lyrics_id: Option<u32>,
     pub duration: Option<u32>,
     pub performance_date: DateTime<Utc>,
 }

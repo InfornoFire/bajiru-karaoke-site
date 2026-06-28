@@ -20,5 +20,4 @@ pub struct NewSong {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateSong {
     pub title: String,
-    pub lyrics_id: Option<u32>,
 }

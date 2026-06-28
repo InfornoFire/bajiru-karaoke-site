@@ -1,5 +1,8 @@
 use crate::error::DbError;
+use crate::models::artist::Artist;
+use crate::models::image::Image;
 use crate::models::song::{NewSong, Song, UpdateSong};
+use crate::models::tag::Tag;
 use sqlx::MySqlPool;
 
 type Result<T> = std::result::Result<T, DbError>;
@@ -36,9 +39,8 @@ pub async fn create(pool: &MySqlPool, new: &NewSong) -> Result<Song> {
 }
 
 pub async fn update(pool: &MySqlPool, id: u32, upd: &UpdateSong) -> Result<Option<Song>> {
-    let affected = sqlx::query("UPDATE songs SET title = ?, lyrics_id = ? WHERE id = ?")
+    let affected = sqlx::query("UPDATE songs SET title = ? WHERE id = ?")
         .bind(&upd.title)
-        .bind(upd.lyrics_id)
         .bind(id)
         .execute(pool)
         .await
@@ -50,6 +52,16 @@ pub async fn update(pool: &MySqlPool, id: u32, upd: &UpdateSong) -> Result<Optio
     get_by_id(pool, id).await
 }
 
+pub async fn update_lyrics_id(pool: &MySqlPool, id: u32, lyrics_id: Option<u32>) -> Result<()> {
+    sqlx::query("UPDATE songs SET lyrics_id = ? WHERE id = ?")
+        .bind(lyrics_id)
+        .bind(id)
+        .execute(pool)
+        .await
+        .map(|_| ())
+        .map_err(DbError::from)
+}
+
 pub async fn delete(pool: &MySqlPool, id: u32) -> Result<bool> {
     sqlx::query("DELETE FROM songs WHERE id = ?")
         .bind(id)
@@ -59,12 +71,17 @@ pub async fn delete(pool: &MySqlPool, id: u32) -> Result<bool> {
         .map_err(DbError::from)
 }
 
-pub async fn get_original_artist_ids(pool: &MySqlPool, song_id: u32) -> Result<Vec<u32>> {
-    sqlx::query_scalar::<_, u32>("SELECT artist_id FROM song_original_artists WHERE song_id = ?")
-        .bind(song_id)
-        .fetch_all(pool)
-        .await
-        .map_err(DbError::from)
+pub async fn get_original_artists(pool: &MySqlPool, song_id: u32) -> Result<Vec<Artist>> {
+    sqlx::query_as::<_, Artist>(
+        "SELECT a.id, a.name, a.description \
+         FROM artists a \
+         JOIN song_original_artists soa ON soa.artist_id = a.id \
+         WHERE soa.song_id = ?",
+    )
+    .bind(song_id)
+    .fetch_all(pool)
+    .await
+    .map_err(DbError::from)
 }
 
 pub async fn set_original_artists(
@@ -89,12 +106,17 @@ pub async fn set_original_artists(
     tx.commit().await.map_err(DbError::from)
 }
 
-pub async fn get_tag_ids(pool: &MySqlPool, song_id: u32) -> Result<Vec<u32>> {
-    sqlx::query_scalar::<_, u32>("SELECT tag_id FROM song_tags WHERE song_id = ?")
-        .bind(song_id)
-        .fetch_all(pool)
-        .await
-        .map_err(DbError::from)
+pub async fn get_tags(pool: &MySqlPool, song_id: u32) -> Result<Vec<Tag>> {
+    sqlx::query_as::<_, Tag>(
+        "SELECT t.id, t.name, t.kind \
+         FROM tags t \
+         JOIN song_tags st ON st.tag_id = t.id \
+         WHERE st.song_id = ?",
+    )
+    .bind(song_id)
+    .fetch_all(pool)
+    .await
+    .map_err(DbError::from)
 }
 
 pub async fn set_tags(pool: &MySqlPool, song_id: u32, tag_ids: &[u32]) -> Result<()> {
@@ -115,12 +137,17 @@ pub async fn set_tags(pool: &MySqlPool, song_id: u32, tag_ids: &[u32]) -> Result
     tx.commit().await.map_err(DbError::from)
 }
 
-pub async fn get_image_ids(pool: &MySqlPool, song_id: u32) -> Result<Vec<u32>> {
-    sqlx::query_scalar::<_, u32>("SELECT image_id FROM song_images WHERE song_id = ?")
-        .bind(song_id)
-        .fetch_all(pool)
-        .await
-        .map_err(DbError::from)
+pub async fn get_images(pool: &MySqlPool, song_id: u32) -> Result<Vec<Image>> {
+    sqlx::query_as::<_, Image>(
+        "SELECT i.id, i.public_url, i.internal_path, i.credits \
+         FROM images i \
+         JOIN song_images si ON si.image_id = i.id \
+         WHERE si.song_id = ?",
+    )
+    .bind(song_id)
+    .fetch_all(pool)
+    .await
+    .map_err(DbError::from)
 }
 
 pub async fn set_images(pool: &MySqlPool, song_id: u32, image_ids: &[u32]) -> Result<()> {
