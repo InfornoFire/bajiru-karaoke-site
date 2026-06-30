@@ -10,11 +10,44 @@ use tracing::error;
 
 use api_types::{
     common::{ArtistInfo, ErrorResponse, MediaInfo},
+    lyrics::{LyricsResponse, UpdateLyricsRequest},
     performances::{
         CreatePerformanceRequest, PerformanceResponse, PerformanceSummary, UpdatePerformanceRequest,
     },
     songs::SongSummary,
 };
+
+#[derive(utoipa::OpenApi)]
+#[openapi(
+    paths(
+        list_performances,
+        get_performance,
+        create_performance,
+        update_performance,
+        delete_performance,
+        upload_audio,
+        delete_audio,
+        upload_video,
+        delete_video,
+        lyrics::get_lyrics,
+        lyrics::put_lyrics,
+        lyrics::delete_lyrics,
+    ),
+    components(schemas(
+        PerformanceSummary,
+        PerformanceResponse,
+        CreatePerformanceRequest,
+        UpdatePerformanceRequest,
+        SongSummary,
+        ArtistInfo,
+        MediaInfo,
+        FileUpload,
+        LyricsResponse,
+        UpdateLyricsRequest,
+        ErrorResponse,
+    ))
+)]
+pub(crate) struct PerformancesApi;
 use db::{
     MySqlPool,
     models::{

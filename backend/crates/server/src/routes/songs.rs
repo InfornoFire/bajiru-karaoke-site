@@ -9,8 +9,36 @@ use axum::{
 
 use api_types::{
     common::{ArtistInfo, ErrorResponse, ImageInfo, TagInfo},
+    lyrics::{LyricsResponse, UpdateLyricsRequest},
     songs::{CreateSongRequest, SongResponse, SongSummary, UpdateSongRequest},
 };
+
+#[derive(utoipa::OpenApi)]
+#[openapi(
+    paths(
+        list_songs,
+        get_song,
+        create_song,
+        update_song,
+        delete_song,
+        lyrics::get_lyrics,
+        lyrics::put_lyrics,
+        lyrics::delete_lyrics,
+    ),
+    components(schemas(
+        SongSummary,
+        SongResponse,
+        CreateSongRequest,
+        UpdateSongRequest,
+        LyricsResponse,
+        UpdateLyricsRequest,
+        ArtistInfo,
+        TagInfo,
+        ImageInfo,
+        ErrorResponse,
+    ))
+)]
+pub(crate) struct SongsApi;
 use db::{
     MySqlPool,
     models::{NewLyrics, NewSong, UpdateSong},
