@@ -11,7 +11,6 @@ pub enum ApiError {
     NotFound,
     #[error("bad request: {0}")]
     BadRequest(String),
-    #[allow(dead_code)]
     #[error("unauthorized")]
     Unauthorized,
     #[error("internal server error")]

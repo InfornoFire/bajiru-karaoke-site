@@ -25,3 +25,8 @@ uuid = { workspace = true }
 utoipa = { workspace = true }
 utoipa-swagger-ui = { workspace = true }
 mime_guess = { workspace = true }
+oauth2 = { workspace = true }
+reqwest = { workspace = true }
+jsonwebtoken = { workspace = true }
+axum-extra = { workspace = true }
+cookie = { workspace = true }

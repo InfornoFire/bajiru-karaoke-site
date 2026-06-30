@@ -6,6 +6,13 @@ pub struct Config {
     pub port: u16,
     pub storage_path: String,
     pub storage_base_url: String,
+    pub twitch_client_id: String,
+    pub twitch_client_secret: String,
+    pub discord_client_id: String,
+    pub discord_client_secret: String,
+    pub jwt_secret: String,
+    pub base_url: String,
+    pub frontend_url: String,
 }
 
 #[derive(Debug)]
@@ -40,6 +47,17 @@ impl Config {
                 .map_err(|_| ConfigError::Missing("STORAGE_PATH"))?,
             storage_base_url: env::var("STORAGE_BASE_URL")
                 .map_err(|_| ConfigError::Missing("STORAGE_BASE_URL"))?,
+            twitch_client_id: env::var("TWITCH_CLIENT_ID")
+                .map_err(|_| ConfigError::Missing("TWITCH_CLIENT_ID"))?,
+            twitch_client_secret: env::var("TWITCH_CLIENT_SECRET")
+                .map_err(|_| ConfigError::Missing("TWITCH_CLIENT_SECRET"))?,
+            discord_client_id: env::var("DISCORD_CLIENT_ID")
+                .map_err(|_| ConfigError::Missing("DISCORD_CLIENT_ID"))?,
+            discord_client_secret: env::var("DISCORD_CLIENT_SECRET")
+                .map_err(|_| ConfigError::Missing("DISCORD_CLIENT_SECRET"))?,
+            jwt_secret: env::var("JWT_SECRET").map_err(|_| ConfigError::Missing("JWT_SECRET"))?,
+            base_url: env::var("BASE_URL").map_err(|_| ConfigError::Missing("BASE_URL"))?,
+            frontend_url: env::var("FRONTEND_URL").unwrap_or_else(|_| "/".into()),
         })
     }
 }

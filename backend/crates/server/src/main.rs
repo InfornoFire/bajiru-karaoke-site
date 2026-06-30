@@ -1,3 +1,4 @@
+mod auth;
 mod config;
 mod docs;
 mod error;
@@ -6,6 +7,10 @@ mod routes;
 mod state;
 mod storage;
 
+use std::sync::Arc;
+
+use jsonwebtoken::{DecodingKey, EncodingKey};
+use oauth2::{AuthUrl, ClientId, ClientSecret, RedirectUrl, TokenUrl, basic::BasicClient};
 use state::AppState;
 use storage::FileStore;
 
@@ -23,10 +28,53 @@ async fn main() {
         .await
         .expect("failed to connect to database");
     let store = FileStore::new(&config.storage_path, &config.storage_base_url);
+
+    let twitch_oauth = Arc::new(
+        BasicClient::new(
+            ClientId::new(config.twitch_client_id.clone()),
+            Some(ClientSecret::new(config.twitch_client_secret.clone())),
+            AuthUrl::new("https://id.twitch.tv/oauth2/authorize".to_string())
+                .expect("valid Twitch auth URL"),
+            Some(
+                TokenUrl::new("https://id.twitch.tv/oauth2/token".to_string())
+                    .expect("valid Twitch token URL"),
+            ),
+        )
+        .set_redirect_uri(
+            RedirectUrl::new(format!("{}/auth/twitch/callback", config.base_url))
+                .expect("valid redirect URL"),
+        ),
+    );
+    let discord_oauth = Arc::new(
+        BasicClient::new(
+            ClientId::new(config.discord_client_id.clone()),
+            Some(ClientSecret::new(config.discord_client_secret.clone())),
+            AuthUrl::new("https://discord.com/oauth2/authorize".to_string())
+                .expect("valid Discord auth URL"),
+            Some(
+                TokenUrl::new("https://discord.com/api/oauth2/token".to_string())
+                    .expect("valid Discord token URL"),
+            ),
+        )
+        .set_redirect_uri(
+            RedirectUrl::new(format!("{}/auth/discord/callback", config.base_url))
+                .expect("valid redirect URL"),
+        ),
+    );
+
+    let jwt_encoding_key = Arc::new(EncodingKey::from_secret(config.jwt_secret.as_bytes()));
+    let jwt_decoding_key = Arc::new(DecodingKey::from_secret(config.jwt_secret.as_bytes()));
+    let http_client = reqwest::Client::new();
+
     let state = AppState {
         pool,
         store,
         config: config.clone(),
+        twitch_oauth,
+        discord_oauth,
+        jwt_encoding_key,
+        jwt_decoding_key,
+        http_client,
     };
     let app = routes::build_router(state);
     let addr = format!("0.0.0.0:{}", config.port);

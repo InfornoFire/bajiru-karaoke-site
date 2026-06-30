@@ -1,0 +1,139 @@
+use axum::{
+    extract::{Query, State},
+    response::Redirect,
+};
+use axum_extra::extract::CookieJar;
+use cookie::{Cookie, SameSite};
+use oauth2::{CsrfToken, Scope};
+use serde::Deserialize;
+
+use db::{models::NewUser, queries};
+
+use crate::{error::ApiError, state::AppState};
+
+const TWITCH_TOKEN_URL: &str = "https://id.twitch.tv/oauth2/token";
+const TWITCH_USERS_URL: &str = "https://api.twitch.tv/helix/users";
+
+#[derive(Deserialize)]
+pub struct CallbackParams {
+    code: String,
+    state: String,
+}
+
+#[derive(Deserialize)]
+struct TokenResponse {
+    access_token: String,
+}
+
+#[derive(Deserialize)]
+struct TwitchUsersResponse {
+    data: Vec<TwitchUser>,
+}
+
+#[derive(Deserialize)]
+struct TwitchUser {
+    id: String,
+    login: String,
+}
+
+pub async fn initiate(State(state): State<AppState>, jar: CookieJar) -> (CookieJar, Redirect) {
+    let (auth_url, csrf_token) = state
+        .twitch_oauth
+        .authorize_url(CsrfToken::new_random)
+        .add_scope(Scope::new("user:read:email".to_string()))
+        .url();
+
+    let mut csrf_cookie = Cookie::new("oauth_csrf_twitch", csrf_token.secret().to_owned());
+    csrf_cookie.set_http_only(true);
+    csrf_cookie.set_same_site(SameSite::Lax);
+    csrf_cookie.set_path("/");
+
+    (jar.add(csrf_cookie), Redirect::to(auth_url.as_str()))
+}
+
+pub async fn callback(
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Query(params): Query<CallbackParams>,
+) -> Result<(CookieJar, Redirect), ApiError> {
+    let csrf_value = jar
+        .get("oauth_csrf_twitch")
+        .map(|c| c.value().to_owned())
+        .ok_or_else(|| ApiError::BadRequest("missing OAuth state".to_string()))?;
+    if csrf_value != params.state {
+        return Err(ApiError::BadRequest("invalid OAuth state".to_string()));
+    }
+
+    let redirect_uri = format!("{}/auth/twitch/callback", state.config.base_url);
+    let token: TokenResponse = state
+        .http_client
+        .post(TWITCH_TOKEN_URL)
+        .form(&[
+            ("client_id", state.config.twitch_client_id.as_str()),
+            ("client_secret", state.config.twitch_client_secret.as_str()),
+            ("code", params.code.as_str()),
+            ("grant_type", "authorization_code"),
+            ("redirect_uri", redirect_uri.as_str()),
+        ])
+        .send()
+        .await
+        .map_err(|e| ApiError::Internal(e.to_string()))?
+        .json()
+        .await
+        .map_err(|e| ApiError::Internal(e.to_string()))?;
+
+    let users: TwitchUsersResponse = state
+        .http_client
+        .get(TWITCH_USERS_URL)
+        .bearer_auth(&token.access_token)
+        .header("Client-Id", &state.config.twitch_client_id)
+        .send()
+        .await
+        .map_err(|e| ApiError::Internal(e.to_string()))?
+        .json()
+        .await
+        .map_err(|e| ApiError::Internal(e.to_string()))?;
+
+    let twitch_user = users
+        .data
+        .into_iter()
+        .next()
+        .ok_or_else(|| ApiError::Internal("no user data from Twitch".to_string()))?;
+    let twitch_id: u64 = twitch_user
+        .id
+        .parse()
+        .map_err(|_| ApiError::Internal("invalid Twitch user ID".to_string()))?;
+
+    let user = queries::users::upsert_by_twitch(
+        &state.pool,
+        &NewUser {
+            username: twitch_user.login,
+            twitch_id: Some(twitch_id),
+            discord_id: None,
+        },
+    )
+    .await?;
+
+    let caps = queries::capabilities::list_for_user(&state.pool, user.id)
+        .await?
+        .into_iter()
+        .map(|c| c.title)
+        .collect();
+
+    let jwt_token = super::jwt::issue(user.id, caps, &state.jwt_encoding_key)
+        .map_err(|e| ApiError::Internal(e.to_string()))?;
+
+    let mut session_cookie = Cookie::new("session", jwt_token);
+    session_cookie.set_http_only(true);
+    session_cookie.set_same_site(SameSite::Lax);
+    session_cookie.set_path("/");
+    session_cookie.set_secure(true);
+
+    let mut rm_csrf = Cookie::new("oauth_csrf_twitch", "");
+    rm_csrf.set_path("/");
+
+    Ok((
+        jar.remove(rm_csrf).add(session_cookie),
+        Redirect::to(&state.config.frontend_url),
+    ))
+}
