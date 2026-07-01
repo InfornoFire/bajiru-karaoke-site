@@ -1,3 +1,5 @@
+//! Twitch OAuth2 Authorization Code flow handlers.
+
 use axum::{
     extract::{Query, State},
     response::Redirect,

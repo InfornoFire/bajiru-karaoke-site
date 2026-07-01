@@ -1,3 +1,9 @@
+//! Authentication routes: password login/register and OAuth2 via Twitch and Discord.
+//!
+//! All auth methods converge on a single `users` table and issue the same
+//! JWT session cookie on success. See [`jwt`] for token format and [`middleware`]
+//! for the `AuthUser` extractor used by protected handlers.
+
 pub(crate) mod discord;
 pub(crate) mod jwt;
 pub(crate) mod middleware;
@@ -38,6 +44,7 @@ use middleware::AuthUser;
 )]
 pub(crate) struct AuthApi;
 
+/// Builds the `/auth` subrouter.
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/register", post(password::register))

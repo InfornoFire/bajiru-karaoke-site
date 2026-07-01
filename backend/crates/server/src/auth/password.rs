@@ -1,3 +1,5 @@
+//! Username and password authentication handlers.
+
 use argon2::{
     Argon2, PasswordHash, PasswordHasher, PasswordVerifier,
     password_hash::{SaltString, rand_core::OsRng},
@@ -99,6 +101,9 @@ pub(crate) async fn login(
     Ok((jar.add(super::jwt::session_cookie(token)), StatusCode::OK))
 }
 
+/// Validates that a username meets length and character constraints.
+///
+/// Allowed characters: ASCII alphanumeric, `_`, `.`. Max length 64.
 fn validate_username(username: &str) -> Result<(), ApiError> {
     if username.is_empty() || username.len() > 64 {
         return Err(ApiError::BadRequest(
@@ -116,6 +121,7 @@ fn validate_username(username: &str) -> Result<(), ApiError> {
     Ok(())
 }
 
+/// Validates that a password meets the minimum length requirement.
 fn validate_password(password: &str) -> Result<(), ApiError> {
     if password.len() < 8 {
         return Err(ApiError::BadRequest(
