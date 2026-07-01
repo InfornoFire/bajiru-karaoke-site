@@ -1,3 +1,13 @@
+//! Lyrics subresource handlers for performances: `GET/PUT/DELETE /api/performances/{id}/lyrics`.
+//!
+//! GET falls back to the first linked song's lyrics when the performance has no
+//! lyrics override set.
+//!
+//! PUT creates or updates a performance specific lyrics override.
+//!
+//! DELETE removes the override and reverts to song fallback. The underlying
+//! lyrics row is deleted only if no other songs or performances still reference it.
+
 use axum::{
     Json,
     extract::{Path, State},

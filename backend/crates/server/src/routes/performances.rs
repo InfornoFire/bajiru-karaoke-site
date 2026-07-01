@@ -1,3 +1,5 @@
+//! Performance CRUD handlers, media upload/delete, and the `PerformancesApi` OpenAPI spec struct.
+
 pub(crate) mod lyrics;
 
 use axum::{
@@ -58,7 +60,7 @@ use db::{
 
 use crate::{error::ApiError, media, state::AppState};
 
-/// Multipart file upload
+/// Placeholder schema for multipart file upload bodies.
 #[derive(utoipa::ToSchema)]
 #[allow(dead_code)]
 pub(crate) struct FileUpload {
@@ -93,6 +95,7 @@ pub fn router() -> Router<AppState> {
         )
 }
 
+/// Loads all related entities for a performance row into a full [`PerformanceResponse`].
 async fn hydrate(
     pool: &MySqlPool,
     perf: db::models::Performance,
@@ -299,7 +302,7 @@ pub(crate) async fn delete_performance(
     }
 }
 
-/// Returns (bytes, content_type, original_filename).
+/// Reads the `file` field from a multipart body and returns its bytes, content type, and filename.
 async fn read_file_field(
     multipart: &mut Multipart,
 ) -> Result<(Vec<u8>, String, Option<String>), ApiError> {

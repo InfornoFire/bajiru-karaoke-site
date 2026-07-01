@@ -1,3 +1,5 @@
+//! Song CRUD handlers and the `SongsApi` OpenAPI spec struct.
+
 pub(crate) mod lyrics;
 
 use axum::{
@@ -59,6 +61,7 @@ pub fn router() -> Router<AppState> {
         )
 }
 
+/// Loads all related entities for a song row into a full [`SongResponse`].
 async fn hydrate(pool: &MySqlPool, song: db::models::Song) -> Result<SongResponse, ApiError> {
     let artists = queries::songs::get_original_artists(pool, song.id)
         .await?

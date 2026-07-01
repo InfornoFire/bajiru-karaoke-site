@@ -1,3 +1,11 @@
+//! Lyrics subresource handlers for songs: `GET/PUT/DELETE /api/songs/{id}/lyrics`.
+//!
+//! PUT creates the lyrics row if none exists, or updates the content in place
+//! if one already exists (shared ownership semantics).
+//!
+//! DELETE unlinks the FK and deletes the lyrics row only if no other songs or
+//! performances still reference it.
+
 use axum::{
     Json,
     extract::{Path, State},
