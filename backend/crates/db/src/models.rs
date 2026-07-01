@@ -1,3 +1,5 @@
+//! Database model types: row structs and their `New`/`Update` input counterparts.
+
 pub mod artist;
 pub mod capability;
 pub mod image;

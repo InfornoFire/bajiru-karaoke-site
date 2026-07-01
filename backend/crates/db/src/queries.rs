@@ -1,3 +1,5 @@
+//! Query functions organized by table, each returning typed model structs.
+
 pub mod artists;
 pub mod capabilities;
 pub mod images;
