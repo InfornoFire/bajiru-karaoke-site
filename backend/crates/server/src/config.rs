@@ -1,5 +1,10 @@
+//! Application configuration loaded from environment variables.
+
 use std::env;
 
+/// Runtime configuration for the server.
+///
+/// All fields are populated from environment variables by [`Config::from_env`].
 #[derive(Clone, Debug)]
 pub struct Config {
     pub database_url: String,
@@ -11,10 +16,14 @@ pub struct Config {
     pub discord_client_id: String,
     pub discord_client_secret: String,
     pub jwt_secret: String,
+    /// Public base URL of this server (e.g. `http://localhost:3000`).
+    /// Used to build OAuth callback URIs.
     pub base_url: String,
+    /// Origin of the frontend app. Used for CORS and post OAuth redirects.
     pub frontend_url: String,
 }
 
+/// Errors that can occur when loading [`Config`].
 #[derive(Debug)]
 pub enum ConfigError {
     Missing(&'static str),
@@ -33,6 +42,14 @@ impl std::fmt::Display for ConfigError {
 impl std::error::Error for ConfigError {}
 
 impl Config {
+    /// Reads all required environment variables and returns a [`Config`].
+    ///
+    /// `PORT` defaults to `3000` if unset. `FRONTEND_URL` defaults to `/`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::Missing`] for any required variable that is absent,
+    /// or [`ConfigError::Invalid`] if `PORT` cannot be parsed as a `u16`.
     pub fn from_env() -> Result<Self, ConfigError> {
         let port = env::var("PORT")
             .unwrap_or_else(|_| "3000".into())

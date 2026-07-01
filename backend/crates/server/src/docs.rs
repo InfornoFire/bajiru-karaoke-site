@@ -1,3 +1,5 @@
+//! OpenAPI spec assembly and Swagger UI endpoint.
+
 use axum::Router;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
@@ -8,6 +10,7 @@ use crate::{
     state::AppState,
 };
 
+/// Builds the `/docs` router, serving the merged OpenAPI spec and Swagger UI.
 pub fn router() -> Router<AppState> {
     let mut spec = SongsApi::openapi();
     spec.merge(PerformancesApi::openapi());

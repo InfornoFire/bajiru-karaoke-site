@@ -1,21 +1,29 @@
+//! Local filesystem file store with path traversal protection.
+
 use std::path::{Component, Path, PathBuf};
 
 use thiserror::Error;
 use uuid::Uuid;
 
+/// Errors returned by [`FileStore`] operations.
 #[derive(Debug, Error)]
 pub enum StorageError {
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
+    /// The supplied path resolved outside the store's base directory.
     #[error("invalid path")]
     InvalidPath,
 }
 
+/// A file that was successfully saved by [`FileStore::save`].
 pub struct SavedFile {
+    /// URL at which the file is publicly reachable.
     pub public_url: String,
+    /// Absolute filesystem path, stored in the DB so it can be passed back to [`FileStore::delete`].
     pub internal_path: String,
 }
 
+/// Manages uploads within a single base directory, exposing them at a base URL.
 #[derive(Clone)]
 pub struct FileStore {
     base_path: PathBuf,
@@ -23,6 +31,7 @@ pub struct FileStore {
 }
 
 impl FileStore {
+    /// Creates a new store rooted at `base_path`, with files served from `base_url`.
     pub fn new(base_path: impl Into<PathBuf>, base_url: impl Into<String>) -> Self {
         Self {
             base_path: base_path.into(),
@@ -30,6 +39,13 @@ impl FileStore {
         }
     }
 
+    /// Writes `data` to `<base_path>/<subfolder>/<uuid>.<extension>`.
+    ///
+    /// Creates the subfolder if it does not exist.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StorageError::Io`] on any filesystem error.
     pub async fn save(
         &self,
         subfolder: &str,
@@ -49,6 +65,12 @@ impl FileStore {
         })
     }
 
+    /// Deletes the file at `internal_path`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StorageError::InvalidPath`] if the path resolves outside the
+    /// base directory, or [`StorageError::Io`] on a filesystem error.
     pub async fn delete(&self, internal_path: &str) -> Result<(), StorageError> {
         let path = PathBuf::from(internal_path);
         if !self.is_within_base(&path) {

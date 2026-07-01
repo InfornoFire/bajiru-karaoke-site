@@ -1,3 +1,5 @@
+//! Top level router composition and middleware stack.
+
 pub(crate) mod performances;
 pub(crate) mod songs;
 
@@ -9,6 +11,7 @@ use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 use crate::{auth, docs, state::AppState};
 
+/// Assembles the full application router with CORS, tracing, and all subrouters.
 pub fn build_router(state: AppState) -> Router {
     let cors_origin = state
         .config

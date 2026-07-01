@@ -1,3 +1,5 @@
+//! HTTP layer error type that maps domain errors to status codes.
+
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Json, Response},
@@ -5,6 +7,7 @@ use axum::{
 use serde_json::json;
 use tracing::error;
 
+/// Errors returned by route handlers, converted to JSON responses via [`IntoResponse`].
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
     #[error("not found")]

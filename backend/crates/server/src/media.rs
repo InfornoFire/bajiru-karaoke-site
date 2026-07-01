@@ -1,5 +1,8 @@
+//! Media type resolution for uploaded audio and video files.
+
 use crate::error::ApiError;
 
+/// The kind of media being uploaded.
 pub enum MediaKind {
     Audio,
     Video,
@@ -13,7 +16,11 @@ const VIDEO_EXTS: &[&str] = &["mp4", "webm", "ogv", "mov", "mkv"];
 /// Tries the MIME type first via mime_guess's database, then the original
 /// filename extension as a fallback, since browsers sometimes send
 /// `application/octet-stream` for unknown types.
-/// Returns an error if the type is not in the allowlist.
+///
+/// # Errors
+///
+/// Returns [`ApiError::BadRequest`] if neither the MIME type nor the filename
+/// extension matches the allowlist for the given `kind`.
 pub fn resolve_ext(
     kind: MediaKind,
     content_type: &str,
