@@ -156,7 +156,7 @@ async fn hydrate(
     get,
     path = "/api/performances",
     responses(
-        (status = 200, description = "List of performances", body = Vec<PerformanceSummary>),
+        (status = 200, description = "List of performances (summarized)", body = Vec<PerformanceSummary>),
     ),
     tag = "performances"
 )]
@@ -164,26 +164,33 @@ pub(crate) async fn list_performances(
     State(state): State<AppState>,
 ) -> Result<Json<Vec<PerformanceSummary>>, ApiError> {
     let perfs = queries::performances::list(&state.pool).await?;
-    let mut summaries = Vec::with_capacity(perfs.len());
-    for p in perfs {
-        let singers = queries::performances::get_singers(&state.pool, p.id)
-            .await?
-            .into_iter()
-            .map(|a| ArtistInfo {
-                id: a.id,
-                name: a.name,
-                description: a.description,
-            })
-            .collect();
-        summaries.push(PerformanceSummary {
-            id: p.id,
-            title: p.title,
-            play_count: p.play_count,
-            duration: p.duration,
-            performance_date: p.performance_date,
-            singers,
-        });
-    }
+    let perf_ids: Vec<u32> = perfs.iter().map(|p| p.id).collect();
+    let mut singers_by_perf =
+        queries::performances::get_singers_batch(&state.pool, &perf_ids).await?;
+
+    let summaries = perfs
+        .into_iter()
+        .map(|p| {
+            let singers = singers_by_perf
+                .remove(&p.id)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|a| ArtistInfo {
+                    id: a.id,
+                    name: a.name,
+                    description: a.description,
+                })
+                .collect();
+            PerformanceSummary {
+                id: p.id,
+                title: p.title,
+                play_count: p.play_count,
+                duration: p.duration,
+                performance_date: p.performance_date,
+                singers,
+            }
+        })
+        .collect();
     Ok(Json(summaries))
 }
 

@@ -4,6 +4,8 @@
 //! helpers (e.g., `set_original_artists`, `set_tags`, `set_images`) that delete
 //! existing rows and reinsert within a single transaction.
 
+use std::collections::HashMap;
+
 use crate::error::DbError;
 use crate::models::artist::Artist;
 use crate::models::image::Image;
@@ -95,6 +97,54 @@ pub async fn get_original_artists(pool: &MySqlPool, song_id: u32) -> Result<Vec<
     .fetch_all(pool)
     .await
     .map_err(DbError::from)
+}
+
+/// Returns original artists for multiple songs, keyed by song ID.
+///
+/// Songs with no original artists are absent from the returned map.
+pub async fn get_original_artists_batch(
+    pool: &MySqlPool,
+    song_ids: &[u32],
+) -> Result<HashMap<u32, Vec<Artist>>> {
+    if song_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    #[derive(sqlx::FromRow)]
+    struct Row {
+        song_id: u32,
+        id: u32,
+        name: String,
+        description: Option<String>,
+    }
+
+    let mut builder = sqlx::QueryBuilder::new(
+        "SELECT soa.song_id, a.id, a.name, a.description \
+         FROM artists a \
+         JOIN song_original_artists soa ON soa.artist_id = a.id \
+         WHERE soa.song_id IN (",
+    );
+    let mut separated = builder.separated(", ");
+    for song_id in song_ids {
+        separated.push_bind(song_id);
+    }
+    builder.push(")");
+
+    let rows: Vec<Row> = builder
+        .build_query_as()
+        .fetch_all(pool)
+        .await
+        .map_err(DbError::from)?;
+
+    let mut by_song: HashMap<u32, Vec<Artist>> = HashMap::new();
+    for row in rows {
+        by_song.entry(row.song_id).or_default().push(Artist {
+            id: row.id,
+            name: row.name,
+            description: row.description,
+        });
+    }
+    Ok(by_song)
 }
 
 /// Replaces the full set of original artists for a song within a transaction.

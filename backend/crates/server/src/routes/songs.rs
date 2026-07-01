@@ -107,7 +107,7 @@ async fn hydrate(pool: &MySqlPool, song: db::models::Song) -> Result<SongRespons
     get,
     path = "/api/songs",
     responses(
-        (status = 200, description = "List of songs", body = Vec<SongSummary>),
+        (status = 200, description = "List of songs (summarized)", body = Vec<SongSummary>),
     ),
     tag = "songs"
 )]
@@ -115,24 +115,31 @@ pub(crate) async fn list_songs(
     State(state): State<AppState>,
 ) -> Result<Json<Vec<SongSummary>>, ApiError> {
     let songs = queries::songs::list(&state.pool).await?;
-    let mut summaries = Vec::with_capacity(songs.len());
-    for s in songs {
-        let artists = queries::songs::get_original_artists(&state.pool, s.id)
-            .await?
-            .into_iter()
-            .map(|a| ArtistInfo {
-                id: a.id,
-                name: a.name,
-                description: a.description,
-            })
-            .collect();
-        summaries.push(SongSummary {
-            id: s.id,
-            title: s.title,
-            date_added: s.date_added,
-            artists,
-        });
-    }
+    let song_ids: Vec<u32> = songs.iter().map(|s| s.id).collect();
+    let mut artists_by_song =
+        queries::songs::get_original_artists_batch(&state.pool, &song_ids).await?;
+
+    let summaries = songs
+        .into_iter()
+        .map(|s| {
+            let artists = artists_by_song
+                .remove(&s.id)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|a| ArtistInfo {
+                    id: a.id,
+                    name: a.name,
+                    description: a.description,
+                })
+                .collect();
+            SongSummary {
+                id: s.id,
+                title: s.title,
+                date_added: s.date_added,
+                artists,
+            }
+        })
+        .collect();
     Ok(Json(summaries))
 }
 

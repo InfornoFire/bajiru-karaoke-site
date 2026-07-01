@@ -4,6 +4,8 @@
 //! (`set_songs`, `set_singers`) that delete existing rows and reinsert within
 //! a single transaction.
 
+use std::collections::HashMap;
+
 use crate::error::DbError;
 use crate::models::artist::Artist;
 use crate::models::performance::{NewPerformance, Performance, UpdatePerformance};
@@ -178,6 +180,57 @@ pub async fn get_singers(pool: &MySqlPool, performance_id: u32) -> Result<Vec<Ar
     .fetch_all(pool)
     .await
     .map_err(DbError::from)
+}
+
+/// Returns singers for multiple performances, keyed by performance ID.
+///
+/// Performances with no singers are absent from the returned map.
+pub async fn get_singers_batch(
+    pool: &MySqlPool,
+    performance_ids: &[u32],
+) -> Result<HashMap<u32, Vec<Artist>>> {
+    if performance_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    #[derive(sqlx::FromRow)]
+    struct Row {
+        performance_id: u32,
+        id: u32,
+        name: String,
+        description: Option<String>,
+    }
+
+    let mut builder = sqlx::QueryBuilder::new(
+        "SELECT ps.performance_id, a.id, a.name, a.description \
+         FROM artists a \
+         JOIN performance_singers ps ON ps.artist_id = a.id \
+         WHERE ps.performance_id IN (",
+    );
+    let mut separated = builder.separated(", ");
+    for performance_id in performance_ids {
+        separated.push_bind(performance_id);
+    }
+    builder.push(")");
+
+    let rows: Vec<Row> = builder
+        .build_query_as()
+        .fetch_all(pool)
+        .await
+        .map_err(DbError::from)?;
+
+    let mut by_performance: HashMap<u32, Vec<Artist>> = HashMap::new();
+    for row in rows {
+        by_performance
+            .entry(row.performance_id)
+            .or_default()
+            .push(Artist {
+                id: row.id,
+                name: row.name,
+                description: row.description,
+            });
+    }
+    Ok(by_performance)
 }
 
 /// Replaces the full set of singers for a performance within a transaction.
