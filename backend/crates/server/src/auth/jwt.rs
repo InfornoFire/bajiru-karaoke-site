@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use cookie::{Cookie, SameSite};
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
 
@@ -31,4 +32,13 @@ pub fn issue(
 
 pub fn verify(token: &str, key: &Arc<DecodingKey>) -> Result<Claims, jsonwebtoken::errors::Error> {
     decode::<Claims>(token, key, &Validation::default()).map(|d| d.claims)
+}
+
+pub fn session_cookie(token: String) -> Cookie<'static> {
+    let mut c = Cookie::new("session", token);
+    c.set_http_only(true);
+    c.set_same_site(SameSite::Lax);
+    c.set_path("/");
+    c.set_secure(true);
+    c
 }

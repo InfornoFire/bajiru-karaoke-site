@@ -1,6 +1,7 @@
 pub(crate) mod discord;
 pub(crate) mod jwt;
 pub(crate) mod middleware;
+pub(crate) mod password;
 pub(crate) mod twitch;
 
 use axum::{
@@ -20,6 +21,8 @@ use middleware::AuthUser;
 
 pub fn router() -> Router<AppState> {
     Router::new()
+        .route("/register", post(password::register))
+        .route("/login", post(password::login))
         .route("/twitch", get(twitch::initiate))
         .route("/twitch/callback", get(twitch::callback))
         .route("/discord", get(discord::initiate))

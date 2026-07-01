@@ -112,17 +112,12 @@ pub async fn callback(
     let jwt_token = super::jwt::issue(user.id, caps, &state.jwt_encoding_key)
         .map_err(|e| ApiError::Internal(e.to_string()))?;
 
-    let mut session_cookie = Cookie::new("session", jwt_token);
-    session_cookie.set_http_only(true);
-    session_cookie.set_same_site(SameSite::Lax);
-    session_cookie.set_path("/");
-    session_cookie.set_secure(true);
-
     let mut rm_csrf = Cookie::new("oauth_csrf_discord", "");
     rm_csrf.set_path("/");
 
     Ok((
-        jar.remove(rm_csrf).add(session_cookie),
+        jar.remove(rm_csrf)
+            .add(super::jwt::session_cookie(jwt_token)),
         Redirect::to(&state.config.frontend_url),
     ))
 }

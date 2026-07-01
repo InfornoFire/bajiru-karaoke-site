@@ -8,4 +8,7 @@ pub enum DbError {
 
     #[error("record not found")]
     NotFound,
+
+    #[error("unique constraint violated")]
+    Conflict,
 }

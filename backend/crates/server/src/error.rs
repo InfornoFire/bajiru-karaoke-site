@@ -13,6 +13,8 @@ pub enum ApiError {
     BadRequest(String),
     #[error("unauthorized")]
     Unauthorized,
+    #[error("conflict: {0}")]
+    Conflict(String),
     #[error("internal server error")]
     Internal(String),
 }
@@ -21,6 +23,7 @@ impl From<db::error::DbError> for ApiError {
     fn from(e: db::error::DbError) -> Self {
         match e {
             db::error::DbError::NotFound => ApiError::NotFound,
+            db::error::DbError::Conflict => ApiError::Conflict("conflict".to_string()),
             db::error::DbError::Sqlx(e) => ApiError::Internal(e.to_string()),
             db::error::DbError::Migrate(e) => ApiError::Internal(e.to_string()),
         }
@@ -39,6 +42,7 @@ impl IntoResponse for ApiError {
             ApiError::NotFound => (StatusCode::NOT_FOUND, "not found".to_string()),
             ApiError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
             ApiError::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized".to_string()),
+            ApiError::Conflict(msg) => (StatusCode::CONFLICT, msg.clone()),
             ApiError::Internal(msg) => {
                 error!("{msg}");
                 (

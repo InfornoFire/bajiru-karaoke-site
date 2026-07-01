@@ -1,12 +1,23 @@
 -- Users
+-- Username is case-insensitive for uniqueness (ci collation) but case-preserving
 CREATE TABLE IF NOT EXISTS users (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-    username VARCHAR(256) NOT NULL,
+    username VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
     twitch_id BIGINT UNSIGNED NULL,
     discord_id BIGINT UNSIGNED NULL,
     PRIMARY KEY (id),
     UNIQUE INDEX (username),
-    CONSTRAINT must_have_id CHECK (twitch_id IS NOT NULL OR discord_id IS NOT NULL)
+    UNIQUE INDEX (twitch_id),
+    UNIQUE INDEX (discord_id)
+) ENGINE = InnoDB;
+
+-- Credentials
+-- Contains credentials for user/pass auth
+CREATE TABLE IF NOT EXISTS user_credentials (
+    user_id INT UNSIGNED NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    PRIMARY KEY (user_id),
+    CONSTRAINT FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB;
 
 -- Capabilities

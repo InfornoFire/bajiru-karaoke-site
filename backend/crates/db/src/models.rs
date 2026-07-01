@@ -9,6 +9,7 @@ pub mod playlist;
 pub mod song;
 pub mod tag;
 pub mod user;
+pub mod user_credential;
 
 pub use artist::{Artist, NewArtist, UpdateArtist};
 pub use capability::{Capability, NewCapability};
@@ -21,3 +22,4 @@ pub use playlist::{NewPlaylist, Playlist, UpdatePlaylist};
 pub use song::{NewSong, Song, UpdateSong};
 pub use tag::{NewTag, Tag};
 pub use user::{NewUser, UpdateUser, User};
+pub use user_credential::UserCredential;

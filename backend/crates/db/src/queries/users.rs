@@ -50,14 +50,20 @@ pub async fn list(pool: &MySqlPool) -> Result<Vec<User>> {
 }
 
 pub async fn create(pool: &MySqlPool, new: &NewUser) -> Result<User> {
-    let id = sqlx::query("INSERT INTO users (username, twitch_id, discord_id) VALUES (?, ?, ?)")
-        .bind(&new.username)
-        .bind(new.twitch_id)
-        .bind(new.discord_id)
-        .execute(pool)
-        .await
-        .map_err(DbError::from)?
-        .last_insert_id();
+    let result =
+        sqlx::query("INSERT INTO users (username, twitch_id, discord_id) VALUES (?, ?, ?)")
+            .bind(&new.username)
+            .bind(new.twitch_id)
+            .bind(new.discord_id)
+            .execute(pool)
+            .await;
+
+    let id = match result {
+        Ok(r) => r.last_insert_id(),
+        Err(sqlx::Error::Database(e)) if e.is_unique_violation() => return Err(DbError::Conflict),
+        Err(e) => return Err(DbError::Sqlx(e)),
+    };
+
     get_by_id(pool, id as u32).await?.ok_or(DbError::NotFound)
 }
 
