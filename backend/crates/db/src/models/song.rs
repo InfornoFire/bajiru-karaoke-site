@@ -1,15 +1,23 @@
+//! Song model.
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+/// A song record fetched from the database.
+///
+/// Does not include related entities (artists, tags, images). Use the
+/// corresponding query helpers to load those via JOIN.
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
 pub struct Song {
     pub id: u32,
     pub title: String,
+    /// User who created this song record. `None` if created by system.
     pub created_by: Option<u32>,
     pub lyrics_id: Option<u32>,
     pub date_added: DateTime<Utc>,
 }
 
+/// Input for creating a new song.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NewSong {
     pub title: String,
@@ -17,6 +25,10 @@ pub struct NewSong {
     pub lyrics_id: Option<u32>,
 }
 
+/// Input for replacing a song's mutable scalar fields.
+///
+/// M2M relations (artists, tags, images) are updated separately
+/// via `queries::songs::set_original_artists` and similar helpers.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateSong {
     pub title: String,

@@ -1,5 +1,11 @@
+//! User model.
+
 use serde::{Deserialize, Serialize};
 
+/// A user record fetched from the database.
+///
+/// All auth methods (password, Twitch, Discord) share this single row.
+/// A `None` provider ID means the user has not linked that provider.
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
 pub struct User {
     pub id: u32,
@@ -8,6 +14,7 @@ pub struct User {
     pub discord_id: Option<u64>,
 }
 
+/// Input for creating a new user.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NewUser {
     pub username: String,
@@ -15,6 +22,7 @@ pub struct NewUser {
     pub discord_id: Option<u64>,
 }
 
+/// Input for replacing a user's mutable fields.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateUser {
     pub username: String,
