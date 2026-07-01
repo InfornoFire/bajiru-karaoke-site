@@ -100,8 +100,14 @@ async fn hydrate(
     pool: &MySqlPool,
     perf: db::models::Performance,
 ) -> Result<PerformanceResponse, ApiError> {
-    let songs = queries::performances::get_songs(pool, perf.id)
-        .await?
+    let (songs, singers, audio, video) = tokio::try_join!(
+        queries::performances::get_songs(pool, perf.id),
+        queries::performances::get_singers(pool, perf.id),
+        queries::performance_audios::list_for_performance(pool, perf.id),
+        queries::performance_videos::list_for_performance(pool, perf.id),
+    )?;
+
+    let songs = songs
         .into_iter()
         .map(|s| SongSummary {
             id: s.id,
@@ -111,8 +117,7 @@ async fn hydrate(
         })
         .collect();
 
-    let singers = queries::performances::get_singers(pool, perf.id)
-        .await?
+    let singers = singers
         .into_iter()
         .map(|a| ArtistInfo {
             id: a.id,
@@ -121,8 +126,7 @@ async fn hydrate(
         })
         .collect();
 
-    let audio = queries::performance_audios::list_for_performance(pool, perf.id)
-        .await?
+    let audio = audio
         .into_iter()
         .map(|a| MediaInfo {
             id: a.id,
@@ -130,8 +134,7 @@ async fn hydrate(
         })
         .collect();
 
-    let video = queries::performance_videos::list_for_performance(pool, perf.id)
-        .await?
+    let video = video
         .into_iter()
         .map(|v| MediaInfo {
             id: v.id,

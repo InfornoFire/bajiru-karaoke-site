@@ -63,8 +63,13 @@ pub fn router() -> Router<AppState> {
 
 /// Loads all related entities for a song row into a full [`SongResponse`].
 async fn hydrate(pool: &MySqlPool, song: db::models::Song) -> Result<SongResponse, ApiError> {
-    let artists = queries::songs::get_original_artists(pool, song.id)
-        .await?
+    let (artists, tags, images) = tokio::try_join!(
+        queries::songs::get_original_artists(pool, song.id),
+        queries::songs::get_tags(pool, song.id),
+        queries::songs::get_images(pool, song.id),
+    )?;
+
+    let artists = artists
         .into_iter()
         .map(|a| ArtistInfo {
             id: a.id,
@@ -73,8 +78,7 @@ async fn hydrate(pool: &MySqlPool, song: db::models::Song) -> Result<SongRespons
         })
         .collect();
 
-    let tags = queries::songs::get_tags(pool, song.id)
-        .await?
+    let tags = tags
         .into_iter()
         .map(|t| TagInfo {
             id: t.id,
@@ -83,8 +87,7 @@ async fn hydrate(pool: &MySqlPool, song: db::models::Song) -> Result<SongRespons
         })
         .collect();
 
-    let images = queries::songs::get_images(pool, song.id)
-        .await?
+    let images = images
         .into_iter()
         .map(|i| ImageInfo {
             id: i.id,
