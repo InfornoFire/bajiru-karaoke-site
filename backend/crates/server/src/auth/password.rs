@@ -4,25 +4,24 @@ use argon2::{
 };
 use axum::{Json, extract::State, http::StatusCode};
 use axum_extra::extract::CookieJar;
-use serde::Deserialize;
 
+use api_types::auth::{LoginRequest, RegisterRequest};
 use db::{models::NewUser, queries};
 
 use crate::{error::ApiError, state::AppState};
 
-#[derive(Deserialize)]
-pub struct RegisterRequest {
-    username: String,
-    password: String,
-}
-
-#[derive(Deserialize)]
-pub struct LoginRequest {
-    username: String,
-    password: String,
-}
-
-pub async fn register(
+#[utoipa::path(
+    post,
+    path = "/auth/register",
+    request_body = RegisterRequest,
+    responses(
+        (status = 201, description = "Registered, session cookie set"),
+        (status = 400, description = "Invalid username or password"),
+        (status = 409, description = "Username already taken"),
+    ),
+    tag = "auth"
+)]
+pub(crate) async fn register(
     State(state): State<AppState>,
     jar: CookieJar,
     Json(req): Json<RegisterRequest>,
@@ -63,7 +62,17 @@ pub async fn register(
     ))
 }
 
-pub async fn login(
+#[utoipa::path(
+    post,
+    path = "/auth/login",
+    request_body = LoginRequest,
+    responses(
+        (status = 200, description = "Logged in, session cookie set"),
+        (status = 401, description = "Invalid credentials"),
+    ),
+    tag = "auth"
+)]
+pub(crate) async fn login(
     State(state): State<AppState>,
     jar: CookieJar,
     Json(req): Json<LoginRequest>,

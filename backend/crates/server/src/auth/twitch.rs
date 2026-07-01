@@ -36,7 +36,18 @@ struct TwitchUser {
     login: String,
 }
 
-pub async fn initiate(State(state): State<AppState>, jar: CookieJar) -> (CookieJar, Redirect) {
+#[utoipa::path(
+    get,
+    path = "/auth/twitch",
+    responses(
+        (status = 302, description = "Redirect to Twitch OAuth, sets CSRF cookie"),
+    ),
+    tag = "auth"
+)]
+pub(crate) async fn initiate(
+    State(state): State<AppState>,
+    jar: CookieJar,
+) -> (CookieJar, Redirect) {
     let (auth_url, csrf_token) = state
         .twitch_oauth
         .authorize_url(CsrfToken::new_random)
@@ -51,7 +62,20 @@ pub async fn initiate(State(state): State<AppState>, jar: CookieJar) -> (CookieJ
     (jar.add(csrf_cookie), Redirect::to(auth_url.as_str()))
 }
 
-pub async fn callback(
+#[utoipa::path(
+    get,
+    path = "/auth/twitch/callback",
+    params(
+        ("code" = String, Query, description = "Authorization code from Twitch"),
+        ("state" = String, Query, description = "CSRF state token"),
+    ),
+    responses(
+        (status = 302, description = "Redirect to frontend, session cookie set"),
+        (status = 400, description = "Missing or invalid OAuth state"),
+    ),
+    tag = "auth"
+)]
+pub(crate) async fn callback(
     State(state): State<AppState>,
     jar: CookieJar,
     Query(params): Query<CallbackParams>,

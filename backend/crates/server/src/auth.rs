@@ -13,11 +13,30 @@ use axum::{
 use axum_extra::extract::CookieJar;
 use cookie::Cookie;
 
-use api_types::auth::MeResponse;
+use api_types::{
+    auth::{LoginRequest, MeResponse, RegisterRequest},
+    common::ErrorResponse,
+};
 use db::queries;
 
 use crate::{error::ApiError, state::AppState};
 use middleware::AuthUser;
+
+#[derive(utoipa::OpenApi)]
+#[openapi(
+    paths(
+        password::register,
+        password::login,
+        me,
+        logout,
+        twitch::initiate,
+        twitch::callback,
+        discord::initiate,
+        discord::callback,
+    ),
+    components(schemas(RegisterRequest, LoginRequest, MeResponse, ErrorResponse,))
+)]
+pub(crate) struct AuthApi;
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -31,7 +50,19 @@ pub fn router() -> Router<AppState> {
         .route("/logout", post(logout))
 }
 
-async fn me(State(state): State<AppState>, auth: AuthUser) -> Result<Json<MeResponse>, ApiError> {
+#[utoipa::path(
+    get,
+    path = "/auth/me",
+    responses(
+        (status = 200, description = "Current user", body = MeResponse),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+    ),
+    tag = "auth"
+)]
+pub(crate) async fn me(
+    State(state): State<AppState>,
+    auth: AuthUser,
+) -> Result<Json<MeResponse>, ApiError> {
     let user = queries::users::get_by_id(&state.pool, auth.user_id)
         .await?
         .ok_or(ApiError::NotFound)?;
@@ -42,7 +73,15 @@ async fn me(State(state): State<AppState>, auth: AuthUser) -> Result<Json<MeResp
     }))
 }
 
-async fn logout(jar: CookieJar) -> (CookieJar, StatusCode) {
+#[utoipa::path(
+    post,
+    path = "/auth/logout",
+    responses(
+        (status = 204, description = "Logged out, session cookie cleared"),
+    ),
+    tag = "auth"
+)]
+pub(crate) async fn logout(jar: CookieJar) -> (CookieJar, StatusCode) {
     let mut removal = Cookie::new("session", "");
     removal.set_path("/");
     (jar.remove(removal), StatusCode::NO_CONTENT)
