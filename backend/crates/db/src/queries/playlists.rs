@@ -1,9 +1,12 @@
+//! Query functions for the `playlists` table and its `playlist_performances` join table.
+
 use crate::error::DbError;
 use crate::models::playlist::{NewPlaylist, Playlist, UpdatePlaylist};
 use sqlx::MySqlPool;
 
 type Result<T> = std::result::Result<T, DbError>;
 
+/// Fetches a playlist by ID.
 pub async fn get_by_id(pool: &MySqlPool, id: u32) -> Result<Option<Playlist>> {
     sqlx::query_as::<_, Playlist>(
         "SELECT id, title, description, kind, created_by FROM playlists WHERE id = ?",
@@ -14,6 +17,7 @@ pub async fn get_by_id(pool: &MySqlPool, id: u32) -> Result<Option<Playlist>> {
     .map_err(DbError::from)
 }
 
+/// Returns all playlists ordered by ID.
 pub async fn list(pool: &MySqlPool) -> Result<Vec<Playlist>> {
     sqlx::query_as::<_, Playlist>(
         "SELECT id, title, description, kind, created_by FROM playlists ORDER BY id",
@@ -23,6 +27,7 @@ pub async fn list(pool: &MySqlPool) -> Result<Vec<Playlist>> {
     .map_err(DbError::from)
 }
 
+/// Returns all playlists created by a specific user.
 pub async fn list_by_user(pool: &MySqlPool, user_id: u32) -> Result<Vec<Playlist>> {
     sqlx::query_as::<_, Playlist>(
         "SELECT id, title, description, kind, created_by FROM playlists \
@@ -34,6 +39,7 @@ pub async fn list_by_user(pool: &MySqlPool, user_id: u32) -> Result<Vec<Playlist
     .map_err(DbError::from)
 }
 
+/// Inserts a new playlist and returns the created row.
 pub async fn create(pool: &MySqlPool, new: &NewPlaylist) -> Result<Playlist> {
     let id = sqlx::query(
         "INSERT INTO playlists (title, description, kind, created_by) VALUES (?, ?, ?, ?)",
@@ -49,6 +55,7 @@ pub async fn create(pool: &MySqlPool, new: &NewPlaylist) -> Result<Playlist> {
     get_by_id(pool, id as u32).await?.ok_or(DbError::NotFound)
 }
 
+/// Updates a playlist's mutable fields. Returns `None` if the ID does not exist.
 pub async fn update(pool: &MySqlPool, id: u32, upd: &UpdatePlaylist) -> Result<Option<Playlist>> {
     let affected =
         sqlx::query("UPDATE playlists SET title = ?, description = ?, kind = ? WHERE id = ?")
@@ -66,6 +73,7 @@ pub async fn update(pool: &MySqlPool, id: u32, upd: &UpdatePlaylist) -> Result<O
     get_by_id(pool, id).await
 }
 
+/// Deletes a playlist by ID. Returns `true` if a row was deleted.
 pub async fn delete(pool: &MySqlPool, id: u32) -> Result<bool> {
     sqlx::query("DELETE FROM playlists WHERE id = ?")
         .bind(id)
@@ -75,6 +83,7 @@ pub async fn delete(pool: &MySqlPool, id: u32) -> Result<bool> {
         .map_err(DbError::from)
 }
 
+/// Returns the performance IDs in a playlist, ordered by `sort_order`.
 pub async fn get_performance_ids(pool: &MySqlPool, playlist_id: u32) -> Result<Vec<u32>> {
     sqlx::query_scalar::<_, u32>(
         "SELECT performance_id FROM playlist_performances \
@@ -86,6 +95,9 @@ pub async fn get_performance_ids(pool: &MySqlPool, playlist_id: u32) -> Result<V
     .map_err(DbError::from)
 }
 
+/// Replaces the full ordered set of performances in a playlist within a transaction.
+///
+/// The position in `performance_ids` becomes the `sort_order` value.
 pub async fn set_performances(
     pool: &MySqlPool,
     playlist_id: u32,
@@ -112,6 +124,10 @@ pub async fn set_performances(
     tx.commit().await.map_err(DbError::from)
 }
 
+/// Appends a performance to the end of a playlist. Silently ignores duplicates.
+///
+/// The `sort_order` is set to `MAX(sort_order) + 1`, defaulting to `0` for an
+/// empty playlist.
 pub async fn add_performance(
     pool: &MySqlPool,
     playlist_id: u32,
@@ -131,6 +147,7 @@ pub async fn add_performance(
     .map_err(DbError::from)
 }
 
+/// Removes a single performance from a playlist.
 pub async fn remove_performance(
     pool: &MySqlPool,
     playlist_id: u32,

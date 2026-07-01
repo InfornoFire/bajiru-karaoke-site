@@ -1,3 +1,9 @@
+//! Query functions for the `performances` table and its related join tables.
+//!
+//! M2M relations (songs, singers) are managed via full replace helpers
+//! (`set_songs`, `set_singers`) that delete existing rows and reinsert within
+//! a single transaction.
+
 use crate::error::DbError;
 use crate::models::artist::Artist;
 use crate::models::performance::{NewPerformance, Performance, UpdatePerformance};
@@ -6,6 +12,7 @@ use sqlx::MySqlPool;
 
 type Result<T> = std::result::Result<T, DbError>;
 
+/// Fetches a performance by ID.
 pub async fn get_by_id(pool: &MySqlPool, id: u32) -> Result<Option<Performance>> {
     sqlx::query_as::<_, Performance>(
         "SELECT id, created_by, title, lyrics_id, play_count, duration, performance_date \
@@ -17,6 +24,7 @@ pub async fn get_by_id(pool: &MySqlPool, id: u32) -> Result<Option<Performance>>
     .map_err(DbError::from)
 }
 
+/// Returns all performances ordered by performance date descending.
 pub async fn list(pool: &MySqlPool) -> Result<Vec<Performance>> {
     sqlx::query_as::<_, Performance>(
         "SELECT id, created_by, title, lyrics_id, play_count, duration, performance_date \
@@ -27,6 +35,7 @@ pub async fn list(pool: &MySqlPool) -> Result<Vec<Performance>> {
     .map_err(DbError::from)
 }
 
+/// Inserts a new performance and returns the created row.
 pub async fn create(pool: &MySqlPool, new: &NewPerformance) -> Result<Performance> {
     let id = sqlx::query(
         "INSERT INTO performances \
@@ -45,6 +54,7 @@ pub async fn create(pool: &MySqlPool, new: &NewPerformance) -> Result<Performanc
     get_by_id(pool, id as u32).await?.ok_or(DbError::NotFound)
 }
 
+/// Updates a performance's mutable scalar fields. Returns `None` if the ID does not exist.
 pub async fn update(
     pool: &MySqlPool,
     id: u32,
@@ -69,6 +79,7 @@ pub async fn update(
     get_by_id(pool, id).await
 }
 
+/// Sets the `lyrics_id` foreign key on a performance, or clears it with `None`.
 pub async fn update_lyrics_id(pool: &MySqlPool, id: u32, lyrics_id: Option<u32>) -> Result<()> {
     sqlx::query("UPDATE performances SET lyrics_id = ? WHERE id = ?")
         .bind(lyrics_id)
@@ -79,6 +90,10 @@ pub async fn update_lyrics_id(pool: &MySqlPool, id: u32, lyrics_id: Option<u32>)
         .map_err(DbError::from)
 }
 
+/// Returns the lyrics content from the first linked song that has lyrics.
+///
+/// Used as a fallback when the performance itself has no `lyrics_id` set.
+/// Songs are ordered by ID to give a deterministic result when multiple are linked.
 pub async fn get_fallback_song_lyrics(
     pool: &MySqlPool,
     performance_id: u32,
@@ -98,6 +113,7 @@ pub async fn get_fallback_song_lyrics(
     .map_err(DbError::from)
 }
 
+/// Deletes a performance by ID. Returns `true` if a row was deleted.
 pub async fn delete(pool: &MySqlPool, id: u32) -> Result<bool> {
     sqlx::query("DELETE FROM performances WHERE id = ?")
         .bind(id)
@@ -107,6 +123,7 @@ pub async fn delete(pool: &MySqlPool, id: u32) -> Result<bool> {
         .map_err(DbError::from)
 }
 
+/// Atomically increments the play count for a performance.
 pub async fn increment_play_count(pool: &MySqlPool, id: u32) -> Result<()> {
     sqlx::query("UPDATE performances SET play_count = play_count + 1 WHERE id = ?")
         .bind(id)
@@ -116,6 +133,7 @@ pub async fn increment_play_count(pool: &MySqlPool, id: u32) -> Result<()> {
         .map_err(DbError::from)
 }
 
+/// Returns the songs linked to a performance via the `performance_songs` join table.
 pub async fn get_songs(pool: &MySqlPool, performance_id: u32) -> Result<Vec<Song>> {
     sqlx::query_as::<_, Song>(
         "SELECT s.id, s.title, s.created_by, s.lyrics_id, s.date_added \
@@ -129,6 +147,7 @@ pub async fn get_songs(pool: &MySqlPool, performance_id: u32) -> Result<Vec<Song
     .map_err(DbError::from)
 }
 
+/// Replaces the full set of songs for a performance within a transaction.
 pub async fn set_songs(pool: &MySqlPool, performance_id: u32, song_ids: &[u32]) -> Result<()> {
     let mut tx = pool.begin().await.map_err(DbError::from)?;
     sqlx::query("DELETE FROM performance_songs WHERE performance_id = ?")
@@ -147,6 +166,7 @@ pub async fn set_songs(pool: &MySqlPool, performance_id: u32, song_ids: &[u32]) 
     tx.commit().await.map_err(DbError::from)
 }
 
+/// Returns the singers for a performance via the `performance_singers` join table.
 pub async fn get_singers(pool: &MySqlPool, performance_id: u32) -> Result<Vec<Artist>> {
     sqlx::query_as::<_, Artist>(
         "SELECT a.id, a.name, a.description \
@@ -160,6 +180,7 @@ pub async fn get_singers(pool: &MySqlPool, performance_id: u32) -> Result<Vec<Ar
     .map_err(DbError::from)
 }
 
+/// Replaces the full set of singers for a performance within a transaction.
 pub async fn set_singers(pool: &MySqlPool, performance_id: u32, artist_ids: &[u32]) -> Result<()> {
     let mut tx = pool.begin().await.map_err(DbError::from)?;
     sqlx::query("DELETE FROM performance_singers WHERE performance_id = ?")

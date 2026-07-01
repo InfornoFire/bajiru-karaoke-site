@@ -1,9 +1,12 @@
+//! Query functions for the `performance_audios` table.
+
 use crate::error::DbError;
 use crate::models::performance_audio::{NewPerformanceAudio, PerformanceAudio};
 use sqlx::MySqlPool;
 
 type Result<T> = std::result::Result<T, DbError>;
 
+/// Fetches a performance audio record by ID.
 pub async fn get_by_id(pool: &MySqlPool, id: u32) -> Result<Option<PerformanceAudio>> {
     sqlx::query_as::<_, PerformanceAudio>(
         "SELECT id, performance_id, public_url, internal_path \
@@ -15,6 +18,7 @@ pub async fn get_by_id(pool: &MySqlPool, id: u32) -> Result<Option<PerformanceAu
     .map_err(DbError::from)
 }
 
+/// Returns all audio records for a given performance.
 pub async fn list_for_performance(
     pool: &MySqlPool,
     performance_id: u32,
@@ -29,6 +33,7 @@ pub async fn list_for_performance(
     .map_err(DbError::from)
 }
 
+/// Inserts a new performance audio record and returns it.
 pub async fn create(pool: &MySqlPool, new: &NewPerformanceAudio) -> Result<PerformanceAudio> {
     let id = sqlx::query(
         "INSERT INTO performance_audios (performance_id, public_url, internal_path) \
@@ -44,6 +49,7 @@ pub async fn create(pool: &MySqlPool, new: &NewPerformanceAudio) -> Result<Perfo
     get_by_id(pool, id as u32).await?.ok_or(DbError::NotFound)
 }
 
+/// Deletes a performance audio record by ID. Returns `true` if a row was deleted.
 pub async fn delete(pool: &MySqlPool, id: u32) -> Result<bool> {
     sqlx::query("DELETE FROM performance_audios WHERE id = ?")
         .bind(id)
