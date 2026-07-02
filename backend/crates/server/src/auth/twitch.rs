@@ -140,21 +140,14 @@ pub(crate) async fn callback(
     )
     .await?;
 
-    let caps = queries::capabilities::list_for_user(&state.pool, user.id)
-        .await?
-        .into_iter()
-        .map(|c| c.title)
-        .collect();
-
-    let jwt_token = super::jwt::issue(user.id, caps, &state.jwt_encoding_key)
-        .map_err(|e| ApiError::Internal(e.to_string()))?;
+    let token = super::session::issue(&state.pool, user.id).await?;
 
     let mut rm_csrf = Cookie::new("oauth_csrf_twitch", "");
     rm_csrf.set_path("/");
 
     Ok((
         jar.remove(rm_csrf)
-            .add(super::jwt::session_cookie(jwt_token)),
+            .add(super::session::session_cookie(token)),
         Redirect::to(&state.config.frontend_url),
     ))
 }

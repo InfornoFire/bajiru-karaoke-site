@@ -3,7 +3,6 @@
 use std::sync::Arc;
 
 use db::MySqlPool;
-use jsonwebtoken::{DecodingKey, EncodingKey};
 use oauth2::basic::BasicClient;
 
 use crate::config::Config;
@@ -20,9 +19,5 @@ pub struct AppState {
     pub config: Config,
     pub twitch_oauth: Arc<BasicClient>,
     pub discord_oauth: Arc<BasicClient>,
-    /// Key used to sign JWTs at login.
-    pub jwt_encoding_key: Arc<EncodingKey>,
-    /// Key used to verify JWTs on authenticated requests.
-    pub jwt_decoding_key: Arc<DecodingKey>,
     pub http_client: reqwest::Client,
 }

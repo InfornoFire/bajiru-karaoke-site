@@ -9,7 +9,6 @@ mod storage;
 
 use std::sync::Arc;
 
-use jsonwebtoken::{DecodingKey, EncodingKey};
 use oauth2::{AuthUrl, ClientId, ClientSecret, RedirectUrl, TokenUrl, basic::BasicClient};
 use state::AppState;
 use storage::FileStore;
@@ -62,8 +61,6 @@ async fn main() {
         ),
     );
 
-    let jwt_encoding_key = Arc::new(EncodingKey::from_secret(config.jwt_secret.as_bytes()));
-    let jwt_decoding_key = Arc::new(DecodingKey::from_secret(config.jwt_secret.as_bytes()));
     let http_client = reqwest::Client::new();
 
     let state = AppState {
@@ -72,8 +69,6 @@ async fn main() {
         config: config.clone(),
         twitch_oauth,
         discord_oauth,
-        jwt_encoding_key,
-        jwt_decoding_key,
         http_client,
     };
     let app = routes::build_router(state);

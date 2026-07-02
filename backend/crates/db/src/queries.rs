@@ -8,6 +8,7 @@ pub mod performance_audios;
 pub mod performance_videos;
 pub mod performances;
 pub mod playlists;
+pub mod sessions;
 pub mod songs;
 pub mod tags;
 pub mod user_credentials;

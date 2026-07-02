@@ -49,17 +49,10 @@ pub(crate) async fn register(
 
     queries::user_credentials::create(&state.pool, user.id, &hash).await?;
 
-    let caps = queries::capabilities::list_for_user(&state.pool, user.id)
-        .await?
-        .into_iter()
-        .map(|c| c.title)
-        .collect();
-
-    let token = super::jwt::issue(user.id, caps, &state.jwt_encoding_key)
-        .map_err(|e| ApiError::Internal(e.to_string()))?;
+    let token = super::session::issue(&state.pool, user.id).await?;
 
     Ok((
-        jar.add(super::jwt::session_cookie(token)),
+        jar.add(super::session::session_cookie(token)),
         StatusCode::CREATED,
     ))
 }
@@ -89,16 +82,12 @@ pub(crate) async fn login(
 
     verify_password(&req.password, &cred.password_hash)?;
 
-    let caps = queries::capabilities::list_for_user(&state.pool, user.id)
-        .await?
-        .into_iter()
-        .map(|c| c.title)
-        .collect();
+    let token = super::session::issue(&state.pool, user.id).await?;
 
-    let token = super::jwt::issue(user.id, caps, &state.jwt_encoding_key)
-        .map_err(|e| ApiError::Internal(e.to_string()))?;
-
-    Ok((jar.add(super::jwt::session_cookie(token)), StatusCode::OK))
+    Ok((
+        jar.add(super::session::session_cookie(token)),
+        StatusCode::OK,
+    ))
 }
 
 /// Validates that a username meets length and character constraints.

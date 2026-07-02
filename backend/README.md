@@ -14,7 +14,6 @@ Configuration is read from environment variables at startup. For local developme
 | `STORAGE_BASE_URL` | Public base HTTP/HTTPS URL that maps to `STORAGE_PATH` |
 | `BASE_URL` | Public base HTTP/HTTPS URL of this backend server. Used to build OAuth callback URLs. |
 | `FRONTEND_URL` | Public base HTTP/HTTPS URL of frontend app. Used for CORS and redirects. |
-| `JWT_SECRET` | Secret key used to sign session tokens. Use a long random string in production. |
 | `TWITCH_CLIENT_ID` | Twitch OAuth application client ID |
 | `TWITCH_CLIENT_SECRET` | Twitch OAuth application client secret |
 | `DISCORD_CLIENT_ID` | Discord OAuth application client ID |

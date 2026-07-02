@@ -35,6 +35,19 @@ CREATE TABLE IF NOT EXISTS user_capabilities (
     PRIMARY KEY (user_id, capability_id)
 ) ENGINE = InnoDB;
 
+-- Sessions
+-- id is the SHA256 hash (hex) of the opaque session token issued to the client.
+CREATE TABLE IF NOT EXISTS sessions (
+    id CHAR(64) NOT NULL,
+    user_id INT UNSIGNED NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NOT NULL,
+    PRIMARY KEY (id),
+    INDEX (user_id),
+    INDEX (expires_at),
+    CONSTRAINT FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
 -- Artists
 -- Representative of both original artists of a song and any singers.
 CREATE TABLE IF NOT EXISTS artists (

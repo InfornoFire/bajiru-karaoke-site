@@ -1,13 +1,13 @@
 //! Authentication routes: password login/register and OAuth2 via Twitch and Discord.
 //!
 //! All auth methods converge on a single `users` table and issue the same
-//! JWT session cookie on success. See [`jwt`] for token format and [`middleware`]
-//! for the `AuthUser` extractor used by protected handlers.
+//! session cookie on success. See [`session`] for token issuance and storage,
+//! and [`middleware`] for the `AuthUser` extractor used by protected handlers.
 
 pub(crate) mod discord;
-pub(crate) mod jwt;
 pub(crate) mod middleware;
 pub(crate) mod password;
+pub(crate) mod session;
 pub(crate) mod twitch;
 
 use axum::{
@@ -88,8 +88,14 @@ pub(crate) async fn me(
     ),
     tag = "auth"
 )]
-pub(crate) async fn logout(jar: CookieJar) -> (CookieJar, StatusCode) {
+pub(crate) async fn logout(
+    State(state): State<AppState>,
+    jar: CookieJar,
+) -> Result<(CookieJar, StatusCode), ApiError> {
+    if let Some(token) = jar.get("session").map(|c| c.value().to_owned()) {
+        session::revoke(&state.pool, &token).await?;
+    }
     let mut removal = Cookie::new("session", "");
     removal.set_path("/");
-    (jar.remove(removal), StatusCode::NO_CONTENT)
+    Ok((jar.remove(removal), StatusCode::NO_CONTENT))
 }
