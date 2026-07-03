@@ -1,0 +1,76 @@
+services:
+  backend:
+    build: ./backend
+    image: bajiru-karaoke/backend:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    # ports:
+    #   - "3000:3000" # For debugging if needed, do not expose in production
+    volumes:
+      - ./data/storage:/data/storage
+    environment:
+      - DATABASE_URL=mysql://root:${DB_ROOT_PASSWORD}@db:3306/bajiru
+
+      - STORAGE_PATH=/data/storage
+      - STORAGE_BASE_URL=${STORAGE_BASE_URL}
+
+      - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID}
+      - TWITCH_CLIENT_SECRET=${TWITCH_CLIENT_SECRET}
+      - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
+      - DISCORD_CLIENT_SECRET=${DISCORD_CLIENT_SECRET}
+
+      - BASE_URL=${BACKEND_URL:-https://${API_DOMAIN:-api.localhost}}
+      - FRONTEND_URL=${FRONTEND_URL:-https://${SITE_DOMAIN:-localhost}}
+      - RUST_LOG=${BACKEND_RUST_LOG}
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+
+  db:
+    image: mariadb:13.0.1-ubi10-rc
+    restart: unless-stopped
+    environment:
+      - MARIADB_DATABASE=bajiru
+      - MARIADB_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+    volumes:
+      - data_db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  nginx:
+    image: nginx:1.31.2-alpine-slim
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - SITE_DOMAIN=${SITE_DOMAIN:-localhost}
+      - API_DOMAIN=${API_DOMAIN:-api.localhost}
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/templates:/etc/nginx/templates:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      # - ./frontend/dist:/usr/share/nginx/html:ro
+
+  # Debugging
+  cadvisor:
+    image: ghcr.io/google/cadvisor:0.60.3
+    profiles: ["debug"]
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+
+volumes:
+  data_db:
