@@ -35,6 +35,7 @@ target
 *.pdb
 **/mutants.out*/
 rustc-ice-*.txt
+backend/.cargo/config.toml
 
 # Node
 node_modules/

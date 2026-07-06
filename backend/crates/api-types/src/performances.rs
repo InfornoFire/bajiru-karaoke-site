@@ -1,0 +1,69 @@
+//! Performance request and response types.
+//!
+//! Create requests accept an optional inline `lyrics` field for convenience.
+//! Updates use PUT semantics: all fields are required and missing optionals mean
+//! null or remove. Lyrics are managed separately via the `/lyrics` subresource.
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
+
+use crate::common::{ArtistInfo, MediaInfo};
+use crate::songs::SongSummary;
+
+/// Request body for `POST /api/performances`.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct CreatePerformanceRequest {
+    pub title: Option<String>,
+    pub performance_date: DateTime<Utc>,
+    /// Duration in seconds.
+    pub duration: Option<u32>,
+    pub song_ids: Vec<u32>,
+    pub singer_ids: Vec<u32>,
+    /// Optional inline lyrics content. Creates a lyrics row in a single round trip.
+    pub lyrics: Option<String>,
+}
+
+/// Request body for `PUT /api/performances/{id}`.
+///
+/// Lyrics are excluded; use `PUT /api/performances/{id}/lyrics` instead.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct UpdatePerformanceRequest {
+    pub title: Option<String>,
+    pub performance_date: DateTime<Utc>,
+    /// Duration in seconds.
+    pub duration: Option<u32>,
+    pub song_ids: Vec<u32>,
+    pub singer_ids: Vec<u32>,
+}
+
+/// Lean performance representation returned by list endpoints.
+///
+/// Contains enough to render a performance card without a follow up request.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct PerformanceSummary {
+    pub id: u32,
+    pub title: Option<String>,
+    pub play_count: i32,
+    /// Duration in seconds.
+    pub duration: Option<u32>,
+    pub performance_date: DateTime<Utc>,
+    pub singers: Vec<ArtistInfo>,
+}
+
+/// Full performance metadata returned by detail endpoints.
+///
+/// Excludes lyrics; fetch those via `GET /api/performances/{id}/lyrics` on demand.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct PerformanceResponse {
+    pub id: u32,
+    pub title: Option<String>,
+    pub play_count: i32,
+    /// Duration in seconds.
+    pub duration: Option<u32>,
+    pub performance_date: DateTime<Utc>,
+    pub songs: Vec<SongSummary>,
+    pub singers: Vec<ArtistInfo>,
+    pub audio: Vec<MediaInfo>,
+    pub video: Vec<MediaInfo>,
+}

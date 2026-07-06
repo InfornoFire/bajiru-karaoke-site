@@ -1,3 +1,5 @@
+//! Database model types: row structs and their `New`/`Update` input counterparts.
+
 pub mod artist;
 pub mod capability;
 pub mod image;
@@ -6,9 +8,11 @@ pub mod performance;
 pub mod performance_audio;
 pub mod performance_video;
 pub mod playlist;
+pub mod session;
 pub mod song;
 pub mod tag;
 pub mod user;
+pub mod user_credential;
 
 pub use artist::{Artist, NewArtist, UpdateArtist};
 pub use capability::{Capability, NewCapability};
@@ -18,6 +22,8 @@ pub use performance::{NewPerformance, Performance, UpdatePerformance};
 pub use performance_audio::{NewPerformanceAudio, PerformanceAudio};
 pub use performance_video::{NewPerformanceVideo, PerformanceVideo};
 pub use playlist::{NewPlaylist, Playlist, UpdatePlaylist};
+pub use session::Session;
 pub use song::{NewSong, Song, UpdateSong};
 pub use tag::{NewTag, Tag};
 pub use user::{NewUser, UpdateUser, User};
+pub use user_credential::UserCredential;

@@ -1,0 +1,57 @@
+//! Song request and response types.
+//!
+//! Create requests accept an optional inline `lyrics` field for convenience.
+//! Updates use PUT semantics: all fields are required and missing optionals mean
+//! null or remove. Lyrics are managed separately via the `/lyrics` subresource.
+
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
+
+use crate::common::{ArtistInfo, ImageInfo, TagInfo};
+
+/// Request body for `POST /api/songs`.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct CreateSongRequest {
+    pub title: String,
+    pub artist_ids: Vec<u32>,
+    pub tag_ids: Vec<u32>,
+    pub image_ids: Vec<u32>,
+    /// Optional inline lyrics content. Creates a lyrics row in a single round trip.
+    pub lyrics: Option<String>,
+}
+
+/// Request body for `PUT /api/songs/{id}`.
+///
+/// Lyrics are excluded; use `PUT /api/songs/{id}/lyrics` instead.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct UpdateSongRequest {
+    pub title: String,
+    pub artist_ids: Vec<u32>,
+    pub tag_ids: Vec<u32>,
+    pub image_ids: Vec<u32>,
+}
+
+/// Lean song representation returned by list endpoints.
+///
+/// Contains enough to render a song card without a follow up request.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct SongSummary {
+    pub id: u32,
+    pub title: String,
+    pub date_added: DateTime<Utc>,
+    pub artists: Vec<ArtistInfo>,
+}
+
+/// Full song metadata returned by detail endpoints.
+///
+/// Excludes lyrics; fetch those via `GET /api/songs/{id}/lyrics` on demand.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct SongResponse {
+    pub id: u32,
+    pub title: String,
+    pub date_added: DateTime<Utc>,
+    pub artists: Vec<ArtistInfo>,
+    pub tags: Vec<TagInfo>,
+    pub images: Vec<ImageInfo>,
+}

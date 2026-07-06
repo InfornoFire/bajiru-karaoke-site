@@ -1,30 +1,45 @@
+//! Performance model.
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+/// A performance record fetched from the database.
+///
+/// Does not include related entities (songs, singers, audio, video). Use the
+/// corresponding query helpers to load those via JOIN.
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
 pub struct Performance {
     pub id: u32,
+    /// User who created this record. `None` if created by an admin action.
     pub created_by: Option<u32>,
     pub title: Option<String>,
+    /// Performance specific lyrics override. Falls back to linked song lyrics when `None`.
     pub lyrics_id: Option<u32>,
     pub play_count: i32,
+    /// Duration in seconds.
     pub duration: Option<u32>,
     pub performance_date: DateTime<Utc>,
 }
 
+/// Input for creating a new performance.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NewPerformance {
     pub created_by: Option<u32>,
     pub title: Option<String>,
     pub lyrics_id: Option<u32>,
+    /// Duration in seconds.
     pub duration: Option<u32>,
     pub performance_date: DateTime<Utc>,
 }
 
+/// Input for replacing a performance's mutable scalar fields.
+///
+/// M2M relations (songs, singers) are updated separately via
+/// `queries::performances::set_songs` and `set_singers`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdatePerformance {
     pub title: Option<String>,
-    pub lyrics_id: Option<u32>,
+    /// Duration in seconds.
     pub duration: Option<u32>,
     pub performance_date: DateTime<Utc>,
 }
