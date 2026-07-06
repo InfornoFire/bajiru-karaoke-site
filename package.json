@@ -1,0 +1,7 @@
+{
+  "name": "bajiru-karaoke-site",
+  "version": "1.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "packageManager": "pnpm@11.9.0"
+}
