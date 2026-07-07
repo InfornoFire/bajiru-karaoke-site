@@ -8,7 +8,7 @@ use axum::{Json, extract::State, http::StatusCode};
 use axum_extra::extract::CookieJar;
 
 use api_types::auth::{LoginRequest, RegisterRequest};
-use db::{models::NewUser, queries};
+use db::{error::DbError, models::NewUser, queries};
 
 use crate::{error::ApiError, state::AppState};
 
@@ -33,8 +33,10 @@ pub(crate) async fn register(
 
     let hash = hash_password(&req.password)?;
 
+    let mut tx = state.pool.begin().await.map_err(DbError::Sqlx)?;
+
     let user = queries::users::create(
-        &state.pool,
+        &mut tx,
         &NewUser {
             username: req.username,
             twitch_id: None,
@@ -47,7 +49,9 @@ pub(crate) async fn register(
         other => ApiError::from(other),
     })?;
 
-    queries::user_credentials::create(&state.pool, user.id, &hash).await?;
+    queries::user_credentials::create(&mut *tx, user.id, &hash).await?;
+
+    tx.commit().await.map_err(DbError::Sqlx)?;
 
     let token = super::session::issue(&state.pool, user.id).await?;
 

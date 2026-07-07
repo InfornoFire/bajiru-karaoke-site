@@ -9,7 +9,7 @@ use cookie::{Cookie, SameSite};
 use oauth2::{CsrfToken, Scope};
 use serde::Deserialize;
 
-use db::{models::NewUser, queries};
+use db::{error::DbError, models::NewUser, queries};
 
 use crate::{error::ApiError, state::AppState};
 
@@ -119,8 +119,9 @@ pub(crate) async fn callback(
         .parse()
         .map_err(|_| ApiError::Internal("invalid Discord user ID".to_string()))?;
 
+    let mut conn = state.pool.acquire().await.map_err(DbError::Sqlx)?;
     let user = queries::users::upsert_by_discord(
-        &state.pool,
+        &mut conn,
         &NewUser {
             username: discord_user.username,
             twitch_id: None,
