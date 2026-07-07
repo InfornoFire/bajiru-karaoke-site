@@ -29,16 +29,15 @@ pub async fn list(executor: impl Executor<'_, Database = MySql>) -> Result<Vec<A
 
 /// Inserts a new artist and returns the created row.
 pub async fn create(conn: &mut MySqlConnection, new: &NewArtist) -> Result<Artist> {
-    let id = sqlx::query("INSERT INTO artists (name, description) VALUES (?, ?)")
-        .bind(&new.name)
-        .bind(&new.description)
-        .execute(&mut *conn)
-        .await
-        .map_err(DbError::from)?
-        .last_insert_id();
-    get_by_id(&mut *conn, id as u32)
-        .await?
-        .ok_or(DbError::NotFound)
+    sqlx::query_as::<_, Artist>(
+        "INSERT INTO artists (name, description) VALUES (?, ?) \
+         RETURNING id, name, description",
+    )
+    .bind(&new.name)
+    .bind(&new.description)
+    .fetch_one(conn)
+    .await
+    .map_err(DbError::from)
 }
 
 /// Updates an artist's mutable fields. Returns `None` if the ID does not exist.
@@ -47,18 +46,16 @@ pub async fn update(
     id: u32,
     upd: &UpdateArtist,
 ) -> Result<Option<Artist>> {
-    let affected = sqlx::query("UPDATE artists SET name = ?, description = ? WHERE id = ?")
-        .bind(&upd.name)
-        .bind(&upd.description)
-        .bind(id)
-        .execute(&mut *conn)
-        .await
-        .map_err(DbError::from)?
-        .rows_affected();
-    if affected == 0 {
-        return Ok(None);
-    }
-    get_by_id(&mut *conn, id).await
+    sqlx::query_as::<_, Artist>(
+        "UPDATE artists SET name = ?, description = ? WHERE id = ? \
+         RETURNING id, name, description",
+    )
+    .bind(&upd.name)
+    .bind(&upd.description)
+    .bind(id)
+    .fetch_optional(conn)
+    .await
+    .map_err(DbError::from)
 }
 
 /// Deletes an artist by ID. Returns `true` if a row was deleted.

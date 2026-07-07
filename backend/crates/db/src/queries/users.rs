@@ -75,23 +75,21 @@ pub async fn list(executor: impl Executor<'_, Database = MySql>) -> Result<Vec<U
 ///
 /// Returns [`DbError::Conflict`] if the username is already taken.
 pub async fn create(conn: &mut MySqlConnection, new: &NewUser) -> Result<User> {
-    let result =
-        sqlx::query("INSERT INTO users (username, twitch_id, discord_id) VALUES (?, ?, ?)")
-            .bind(&new.username)
-            .bind(new.twitch_id)
-            .bind(new.discord_id)
-            .execute(&mut *conn)
-            .await;
+    let result = sqlx::query_as::<_, User>(
+        "INSERT INTO users (username, twitch_id, discord_id) VALUES (?, ?, ?) \
+         RETURNING id, username, twitch_id, discord_id",
+    )
+    .bind(&new.username)
+    .bind(new.twitch_id)
+    .bind(new.discord_id)
+    .fetch_one(conn)
+    .await;
 
-    let id = match result {
-        Ok(r) => r.last_insert_id(),
-        Err(sqlx::Error::Database(e)) if e.is_unique_violation() => return Err(DbError::Conflict),
-        Err(e) => return Err(DbError::Sqlx(e)),
-    };
-
-    get_by_id(&mut *conn, id as u32)
-        .await?
-        .ok_or(DbError::NotFound)
+    match result {
+        Ok(user) => Ok(user),
+        Err(sqlx::Error::Database(e)) if e.is_unique_violation() => Err(DbError::Conflict),
+        Err(e) => Err(DbError::Sqlx(e)),
+    }
 }
 
 /// Inserts a user keyed on `twitch_id`, updating `username` on conflict.
@@ -136,20 +134,17 @@ pub async fn upsert_by_discord(conn: &mut MySqlConnection, new: &NewUser) -> Res
 
 /// Replaces all mutable fields on a user. Returns `None` if the ID does not exist.
 pub async fn update(conn: &mut MySqlConnection, id: u32, upd: &UpdateUser) -> Result<Option<User>> {
-    let affected =
-        sqlx::query("UPDATE users SET username = ?, twitch_id = ?, discord_id = ? WHERE id = ?")
-            .bind(&upd.username)
-            .bind(upd.twitch_id)
-            .bind(upd.discord_id)
-            .bind(id)
-            .execute(&mut *conn)
-            .await
-            .map_err(DbError::from)?
-            .rows_affected();
-    if affected == 0 {
-        return Ok(None);
-    }
-    get_by_id(&mut *conn, id).await
+    sqlx::query_as::<_, User>(
+        "UPDATE users SET username = ?, twitch_id = ?, discord_id = ? WHERE id = ? \
+         RETURNING id, username, twitch_id, discord_id",
+    )
+    .bind(&upd.username)
+    .bind(upd.twitch_id)
+    .bind(upd.discord_id)
+    .bind(id)
+    .fetch_optional(conn)
+    .await
+    .map_err(DbError::from)
 }
 
 /// Deletes a user by ID. Returns `true` if a row was deleted.

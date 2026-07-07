@@ -24,15 +24,11 @@ pub async fn get_by_id(
 
 /// Inserts a new lyrics row and returns it.
 pub async fn create(conn: &mut MySqlConnection, new: &NewLyrics) -> Result<Lyrics> {
-    let id = sqlx::query("INSERT INTO lyrics (content) VALUES (?)")
+    sqlx::query_as::<_, Lyrics>("INSERT INTO lyrics (content) VALUES (?) RETURNING id, content")
         .bind(&new.content)
-        .execute(&mut *conn)
+        .fetch_one(conn)
         .await
-        .map_err(DbError::from)?
-        .last_insert_id();
-    get_by_id(&mut *conn, id as u32)
-        .await?
-        .ok_or(DbError::NotFound)
+        .map_err(DbError::from)
 }
 
 /// Updates the content of an existing lyrics row in place.

@@ -42,23 +42,20 @@ pub async fn list(executor: impl Executor<'_, Database = MySql>) -> Result<Vec<P
 
 /// Inserts a new performance and returns the created row.
 pub async fn create(conn: &mut MySqlConnection, new: &NewPerformance) -> Result<Performance> {
-    let id = sqlx::query(
+    sqlx::query_as::<_, Performance>(
         "INSERT INTO performances \
          (created_by, title, lyrics_id, duration, performance_date) \
-         VALUES (?, ?, ?, ?, ?)",
+         VALUES (?, ?, ?, ?, ?) \
+         RETURNING id, created_by, title, lyrics_id, play_count, duration, performance_date",
     )
     .bind(new.created_by)
     .bind(&new.title)
     .bind(new.lyrics_id)
     .bind(new.duration)
     .bind(new.performance_date)
-    .execute(&mut *conn)
+    .fetch_one(conn)
     .await
-    .map_err(DbError::from)?
-    .last_insert_id();
-    get_by_id(&mut *conn, id as u32)
-        .await?
-        .ok_or(DbError::NotFound)
+    .map_err(DbError::from)
 }
 
 /// Updates a performance's mutable scalar fields. Returns `None` if the ID does not exist.
@@ -67,23 +64,19 @@ pub async fn update(
     id: u32,
     upd: &UpdatePerformance,
 ) -> Result<Option<Performance>> {
-    let affected = sqlx::query(
+    sqlx::query_as::<_, Performance>(
         "UPDATE performances \
          SET title = ?, duration = ?, performance_date = ? \
-         WHERE id = ?",
+         WHERE id = ? \
+         RETURNING id, created_by, title, lyrics_id, play_count, duration, performance_date",
     )
     .bind(&upd.title)
     .bind(upd.duration)
     .bind(upd.performance_date)
     .bind(id)
-    .execute(&mut *conn)
+    .fetch_optional(conn)
     .await
-    .map_err(DbError::from)?
-    .rows_affected();
-    if affected == 0 {
-        return Ok(None);
-    }
-    get_by_id(&mut *conn, id).await
+    .map_err(DbError::from)
 }
 
 /// Sets the `lyrics_id` foreign key on a performance, or clears it with `None`.

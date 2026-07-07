@@ -42,20 +42,17 @@ pub async fn create(
     conn: &mut MySqlConnection,
     new: &NewPerformanceVideo,
 ) -> Result<PerformanceVideo> {
-    let id = sqlx::query(
+    sqlx::query_as::<_, PerformanceVideo>(
         "INSERT INTO performance_videos (performance_id, public_url, internal_path) \
-         VALUES (?, ?, ?)",
+         VALUES (?, ?, ?) \
+         RETURNING id, performance_id, public_url, internal_path",
     )
     .bind(new.performance_id)
     .bind(&new.public_url)
     .bind(&new.internal_path)
-    .execute(&mut *conn)
+    .fetch_one(conn)
     .await
-    .map_err(DbError::from)?
-    .last_insert_id();
-    get_by_id(&mut *conn, id as u32)
-        .await?
-        .ok_or(DbError::NotFound)
+    .map_err(DbError::from)
 }
 
 /// Deletes a performance video record by ID. Returns `true` if a row was deleted.

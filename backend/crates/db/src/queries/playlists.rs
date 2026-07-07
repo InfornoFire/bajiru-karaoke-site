@@ -48,20 +48,17 @@ pub async fn list_by_user(
 
 /// Inserts a new playlist and returns the created row.
 pub async fn create(conn: &mut MySqlConnection, new: &NewPlaylist) -> Result<Playlist> {
-    let id = sqlx::query(
-        "INSERT INTO playlists (title, description, kind, created_by) VALUES (?, ?, ?, ?)",
+    sqlx::query_as::<_, Playlist>(
+        "INSERT INTO playlists (title, description, kind, created_by) VALUES (?, ?, ?, ?) \
+         RETURNING id, title, description, kind, created_by",
     )
     .bind(&new.title)
     .bind(&new.description)
     .bind(&new.kind)
     .bind(new.created_by)
-    .execute(&mut *conn)
+    .fetch_one(conn)
     .await
-    .map_err(DbError::from)?
-    .last_insert_id();
-    get_by_id(&mut *conn, id as u32)
-        .await?
-        .ok_or(DbError::NotFound)
+    .map_err(DbError::from)
 }
 
 /// Updates a playlist's mutable fields. Returns `None` if the ID does not exist.
@@ -70,20 +67,17 @@ pub async fn update(
     id: u32,
     upd: &UpdatePlaylist,
 ) -> Result<Option<Playlist>> {
-    let affected =
-        sqlx::query("UPDATE playlists SET title = ?, description = ?, kind = ? WHERE id = ?")
-            .bind(&upd.title)
-            .bind(&upd.description)
-            .bind(&upd.kind)
-            .bind(id)
-            .execute(&mut *conn)
-            .await
-            .map_err(DbError::from)?
-            .rows_affected();
-    if affected == 0 {
-        return Ok(None);
-    }
-    get_by_id(&mut *conn, id).await
+    sqlx::query_as::<_, Playlist>(
+        "UPDATE playlists SET title = ?, description = ?, kind = ? WHERE id = ? \
+         RETURNING id, title, description, kind, created_by",
+    )
+    .bind(&upd.title)
+    .bind(&upd.description)
+    .bind(&upd.kind)
+    .bind(id)
+    .fetch_optional(conn)
+    .await
+    .map_err(DbError::from)
 }
 
 /// Deletes a playlist by ID. Returns `true` if a row was deleted.

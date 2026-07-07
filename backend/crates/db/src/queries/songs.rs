@@ -41,32 +41,29 @@ pub async fn list(executor: impl Executor<'_, Database = MySql>) -> Result<Vec<S
 
 /// Inserts a new song and returns the created row.
 pub async fn create(conn: &mut MySqlConnection, new: &NewSong) -> Result<Song> {
-    let id = sqlx::query("INSERT INTO songs (title, created_by, lyrics_id) VALUES (?, ?, ?)")
-        .bind(&new.title)
-        .bind(new.created_by)
-        .bind(new.lyrics_id)
-        .execute(&mut *conn)
-        .await
-        .map_err(DbError::from)?
-        .last_insert_id();
-    get_by_id(&mut *conn, id as u32)
-        .await?
-        .ok_or(DbError::NotFound)
+    sqlx::query_as::<_, Song>(
+        "INSERT INTO songs (title, created_by, lyrics_id) VALUES (?, ?, ?) \
+         RETURNING id, title, created_by, lyrics_id, date_added",
+    )
+    .bind(&new.title)
+    .bind(new.created_by)
+    .bind(new.lyrics_id)
+    .fetch_one(conn)
+    .await
+    .map_err(DbError::from)
 }
 
 /// Updates a song's mutable fields. Returns `None` if the ID does not exist.
 pub async fn update(conn: &mut MySqlConnection, id: u32, upd: &UpdateSong) -> Result<Option<Song>> {
-    let affected = sqlx::query("UPDATE songs SET title = ? WHERE id = ?")
-        .bind(&upd.title)
-        .bind(id)
-        .execute(&mut *conn)
-        .await
-        .map_err(DbError::from)?
-        .rows_affected();
-    if affected == 0 {
-        return Ok(None);
-    }
-    get_by_id(&mut *conn, id).await
+    sqlx::query_as::<_, Song>(
+        "UPDATE songs SET title = ? WHERE id = ? \
+         RETURNING id, title, created_by, lyrics_id, date_added",
+    )
+    .bind(&upd.title)
+    .bind(id)
+    .fetch_optional(conn)
+    .await
+    .map_err(DbError::from)
 }
 
 /// Sets the `lyrics_id` foreign key on a song, or clears it with `None`.
