@@ -4,7 +4,7 @@ pub(crate) mod lyrics;
 
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     routing::get,
 };
@@ -12,6 +12,7 @@ use axum::{
 use api_types::{
     common::{ArtistInfo, ErrorResponse, ImageInfo, TagInfo},
     lyrics::{LyricsResponse, UpdateLyricsRequest},
+    pagination::{PagedResponse, PaginationParams},
     songs::{CreateSongRequest, SongResponse, SongSummary, UpdateSongRequest},
 };
 
@@ -38,6 +39,7 @@ use api_types::{
         TagInfo,
         ImageInfo,
         ErrorResponse,
+        PagedResponse<SongSummary>,
     ))
 )]
 pub(crate) struct SongsApi;
@@ -48,7 +50,7 @@ use db::{
     queries,
 };
 
-use crate::{error::ApiError, state::AppState};
+use crate::{error::ApiError, pagination, state::AppState};
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -110,20 +112,28 @@ async fn hydrate(pool: &MySqlPool, song: db::models::Song) -> Result<SongRespons
 #[utoipa::path(
     get,
     path = "/api/songs",
+    params(PaginationParams),
     responses(
-        (status = 200, description = "List of songs (summarized)", body = Vec<SongSummary>),
+        (status = 200, description = "Paged list of songs", body = PagedResponse<SongSummary>),
     ),
     tag = "songs"
 )]
 pub(crate) async fn list_songs(
     State(state): State<AppState>,
-) -> Result<Json<Vec<SongSummary>>, ApiError> {
-    let songs = queries::songs::list(&state.pool).await?;
+    Query(params): Query<PaginationParams>,
+) -> Result<Json<PagedResponse<SongSummary>>, ApiError> {
+    let (limit, offset) = pagination::limit_offset(&params);
+
+    let (total, songs) = tokio::try_join!(
+        queries::songs::count(&state.pool),
+        queries::songs::list(&state.pool, limit, offset),
+    )?;
+
     let song_ids: Vec<u32> = songs.iter().map(|s| s.id).collect();
     let mut artists_by_song =
         queries::songs::get_original_artists_batch(&state.pool, &song_ids).await?;
 
-    let summaries = songs
+    let items = songs
         .into_iter()
         .map(|s| {
             let artists = artists_by_song
@@ -144,7 +154,13 @@ pub(crate) async fn list_songs(
             }
         })
         .collect();
-    Ok(Json(summaries))
+
+    Ok(Json(PagedResponse {
+        items,
+        total,
+        page: params.page,
+        per_page: limit,
+    }))
 }
 
 #[utoipa::path(

@@ -29,11 +29,27 @@ pub async fn get_by_id(
     .map_err(DbError::from)
 }
 
-/// Returns all songs ordered by date added descending.
-pub async fn list(executor: impl Executor<'_, Database = MySql>) -> Result<Vec<Song>> {
+/// Returns the total number of songs.
+pub async fn count(executor: impl Executor<'_, Database = MySql>) -> Result<u64> {
+    sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM songs")
+        .fetch_one(executor)
+        .await
+        .map(|n| n as u64)
+        .map_err(DbError::from)
+}
+
+/// Returns a page of songs ordered by date added descending.
+pub async fn list(
+    executor: impl Executor<'_, Database = MySql>,
+    limit: u32,
+    offset: u32,
+) -> Result<Vec<Song>> {
     sqlx::query_as::<_, Song>(
-        "SELECT id, title, created_by, lyrics_id, date_added FROM songs ORDER BY date_added DESC",
+        "SELECT id, title, created_by, lyrics_id, date_added \
+         FROM songs ORDER BY date_added DESC LIMIT ? OFFSET ?",
     )
+    .bind(limit)
+    .bind(offset)
     .fetch_all(executor)
     .await
     .map_err(DbError::from)

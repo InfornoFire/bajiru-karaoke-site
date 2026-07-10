@@ -4,7 +4,7 @@ pub(crate) mod lyrics;
 
 use axum::{
     Json, Router,
-    extract::{DefaultBodyLimit, Multipart, Path, State},
+    extract::{DefaultBodyLimit, Multipart, Path, Query, State},
     http::StatusCode,
     routing::{delete, get, post},
 };
@@ -13,6 +13,7 @@ use tracing::error;
 use api_types::{
     common::{ArtistInfo, ErrorResponse, MediaInfo},
     lyrics::{LyricsResponse, UpdateLyricsRequest},
+    pagination::{PagedResponse, PaginationParams},
     performances::{
         CreatePerformanceRequest, PerformanceResponse, PerformanceSummary, UpdatePerformanceRequest,
     },
@@ -47,6 +48,7 @@ use api_types::{
         LyricsResponse,
         UpdateLyricsRequest,
         ErrorResponse,
+        PagedResponse<PerformanceSummary>,
     ))
 )]
 pub(crate) struct PerformancesApi;
@@ -59,7 +61,7 @@ use db::{
     queries,
 };
 
-use crate::{error::ApiError, media, state::AppState};
+use crate::{error::ApiError, media, pagination, state::AppState};
 
 /// Placeholder schema for multipart file upload bodies.
 #[derive(utoipa::ToSchema)]
@@ -159,20 +161,28 @@ async fn hydrate(
 #[utoipa::path(
     get,
     path = "/api/performances",
+    params(PaginationParams),
     responses(
-        (status = 200, description = "List of performances (summarized)", body = Vec<PerformanceSummary>),
+        (status = 200, description = "Paged list of performances", body = PagedResponse<PerformanceSummary>),
     ),
     tag = "performances"
 )]
 pub(crate) async fn list_performances(
     State(state): State<AppState>,
-) -> Result<Json<Vec<PerformanceSummary>>, ApiError> {
-    let perfs = queries::performances::list(&state.pool).await?;
+    Query(params): Query<PaginationParams>,
+) -> Result<Json<PagedResponse<PerformanceSummary>>, ApiError> {
+    let (limit, offset) = pagination::limit_offset(&params);
+
+    let (total, perfs) = tokio::try_join!(
+        queries::performances::count(&state.pool),
+        queries::performances::list(&state.pool, limit, offset),
+    )?;
+
     let perf_ids: Vec<u32> = perfs.iter().map(|p| p.id).collect();
     let mut singers_by_perf =
         queries::performances::get_singers_batch(&state.pool, &perf_ids).await?;
 
-    let summaries = perfs
+    let items = perfs
         .into_iter()
         .map(|p| {
             let singers = singers_by_perf
@@ -195,7 +205,13 @@ pub(crate) async fn list_performances(
             }
         })
         .collect();
-    Ok(Json(summaries))
+
+    Ok(Json(PagedResponse {
+        items,
+        total,
+        page: params.page,
+        per_page: limit,
+    }))
 }
 
 #[utoipa::path(
