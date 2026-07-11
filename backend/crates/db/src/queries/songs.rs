@@ -11,7 +11,7 @@ use crate::error::DbError;
 use crate::models::artist::Artist;
 use crate::models::image::Image;
 use crate::models::song::{NewSong, Song, UpdateSong};
-use crate::models::tag::Tag;
+use crate::models::tag::TagWithKind;
 
 type Result<T> = std::result::Result<T, DbError>;
 
@@ -196,13 +196,13 @@ pub async fn set_original_artists(
     Ok(())
 }
 
-/// Returns the tags for a song via the `song_tags` join table.
+/// Returns the tags for a song with their kind from the `song_tags` join table.
 pub async fn get_tags(
     executor: impl Executor<'_, Database = MySql>,
     song_id: u32,
-) -> Result<Vec<Tag>> {
-    sqlx::query_as::<_, Tag>(
-        "SELECT t.id, t.name, t.kind \
+) -> Result<Vec<TagWithKind>> {
+    sqlx::query_as::<_, TagWithKind>(
+        "SELECT t.id, t.name, st.kind \
          FROM tags t \
          JOIN song_tags st ON st.tag_id = t.id \
          WHERE st.song_id = ?",
@@ -216,16 +216,21 @@ pub async fn get_tags(
 /// Replaces the full set of tags for a song.
 ///
 /// Must be called within a caller provided transaction for atomicity.
-pub async fn set_tags(conn: &mut MySqlConnection, song_id: u32, tag_ids: &[u32]) -> Result<()> {
+pub async fn set_tags(
+    conn: &mut MySqlConnection,
+    song_id: u32,
+    tags: &[(u32, &str)],
+) -> Result<()> {
     sqlx::query("DELETE FROM song_tags WHERE song_id = ?")
         .bind(song_id)
         .execute(&mut *conn)
         .await
         .map_err(DbError::from)?;
-    for &tag_id in tag_ids {
-        sqlx::query("INSERT INTO song_tags (song_id, tag_id) VALUES (?, ?)")
+    for &(tag_id, kind) in tags {
+        sqlx::query("INSERT INTO song_tags (song_id, tag_id, kind) VALUES (?, ?, ?)")
             .bind(song_id)
             .bind(tag_id)
+            .bind(kind)
             .execute(&mut *conn)
             .await
             .map_err(DbError::from)?;

@@ -9,3 +9,4 @@ pub mod lyrics;
 pub mod pagination;
 pub mod performances;
 pub mod songs;
+pub mod tags;

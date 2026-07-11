@@ -8,8 +8,16 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::common::{ArtistInfo, MediaInfo};
+use crate::common::{ArtistInfo, MediaInfo, TagInfo};
 use crate::songs::SongSummary;
+use crate::tags::PerformanceTagKind;
+
+/// A tag paired with its kind for application to a performance.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct PerformanceTagAssignment {
+    pub tag_id: u32,
+    pub kind: PerformanceTagKind,
+}
 
 /// Request body for `POST /api/performances`.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -20,6 +28,7 @@ pub struct CreatePerformanceRequest {
     pub duration: Option<u32>,
     pub song_ids: Vec<u32>,
     pub singer_ids: Vec<u32>,
+    pub tags: Vec<PerformanceTagAssignment>,
     /// Optional inline lyrics content. Creates a lyrics row in a single round trip.
     pub lyrics: Option<String>,
 }
@@ -35,6 +44,7 @@ pub struct UpdatePerformanceRequest {
     pub duration: Option<u32>,
     pub song_ids: Vec<u32>,
     pub singer_ids: Vec<u32>,
+    pub tags: Vec<PerformanceTagAssignment>,
 }
 
 /// Lean performance representation returned by list endpoints.
@@ -64,6 +74,7 @@ pub struct PerformanceResponse {
     pub performance_date: DateTime<Utc>,
     pub songs: Vec<SongSummary>,
     pub singers: Vec<ArtistInfo>,
+    pub tags: Vec<TagInfo>,
     pub audio: Vec<MediaInfo>,
     pub video: Vec<MediaInfo>,
 }

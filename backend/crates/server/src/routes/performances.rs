@@ -11,13 +11,15 @@ use axum::{
 use tracing::error;
 
 use api_types::{
-    common::{ArtistInfo, ErrorResponse, MediaInfo},
+    common::{ArtistInfo, ErrorResponse, MediaInfo, TagInfo},
     lyrics::{LyricsResponse, UpdateLyricsRequest},
     pagination::{PagedResponse, PaginationParams},
     performances::{
-        CreatePerformanceRequest, PerformanceResponse, PerformanceSummary, UpdatePerformanceRequest,
+        CreatePerformanceRequest, PerformanceResponse, PerformanceSummary,
+        PerformanceTagAssignment, UpdatePerformanceRequest,
     },
     songs::SongSummary,
+    tags::PerformanceTagKind,
 };
 
 #[derive(utoipa::OpenApi)]
@@ -41,8 +43,11 @@ use api_types::{
         PerformanceResponse,
         CreatePerformanceRequest,
         UpdatePerformanceRequest,
+        PerformanceTagAssignment,
+        PerformanceTagKind,
         SongSummary,
         ArtistInfo,
+        TagInfo,
         MediaInfo,
         FileUpload,
         LyricsResponse,
@@ -103,9 +108,10 @@ async fn hydrate(
     pool: &MySqlPool,
     perf: db::models::Performance,
 ) -> Result<PerformanceResponse, ApiError> {
-    let (songs, singers, audio, video) = tokio::try_join!(
+    let (songs, singers, tags, audio, video) = tokio::try_join!(
         queries::performances::get_songs(pool, perf.id),
         queries::performances::get_singers(pool, perf.id),
+        queries::performances::get_tags(pool, perf.id),
         queries::performance_audios::list_for_performance(pool, perf.id),
         queries::performance_videos::list_for_performance(pool, perf.id),
     )?;
@@ -126,6 +132,15 @@ async fn hydrate(
             id: a.id,
             name: a.name,
             description: a.description,
+        })
+        .collect();
+
+    let tags = tags
+        .into_iter()
+        .map(|t| TagInfo {
+            id: t.id,
+            name: t.name,
+            kind: t.kind,
         })
         .collect();
 
@@ -153,6 +168,7 @@ async fn hydrate(
         performance_date: perf.performance_date,
         songs,
         singers,
+        tags,
         audio,
         video,
     })
@@ -269,8 +285,10 @@ pub(crate) async fn create_performance(
     )
     .await?;
 
+    let tag_pairs = tag_pairs(&req.tags);
     queries::performances::set_songs(&mut tx, perf.id, &req.song_ids).await?;
     queries::performances::set_singers(&mut tx, perf.id, &req.singer_ids).await?;
+    queries::performances::set_tags(&mut tx, perf.id, &tag_pairs).await?;
 
     tx.commit().await.map_err(DbError::Sqlx)?;
 
@@ -307,8 +325,10 @@ pub(crate) async fn update_performance(
     .await?
     .ok_or(ApiError::NotFound)?;
 
+    let tag_pairs = tag_pairs(&req.tags);
     queries::performances::set_songs(&mut tx, id, &req.song_ids).await?;
     queries::performances::set_singers(&mut tx, id, &req.singer_ids).await?;
+    queries::performances::set_tags(&mut tx, id, &tag_pairs).await?;
 
     tx.commit().await.map_err(DbError::Sqlx)?;
 
@@ -335,6 +355,13 @@ pub(crate) async fn delete_performance(
     } else {
         Err(ApiError::NotFound)
     }
+}
+
+fn tag_pairs(assignments: &[PerformanceTagAssignment]) -> Vec<(u32, &str)> {
+    assignments
+        .iter()
+        .map(|a| (a.tag_id, a.kind.as_str()))
+        .collect()
 }
 
 /// Reads the `file` field from a multipart body and returns its bytes, content type, and filename.

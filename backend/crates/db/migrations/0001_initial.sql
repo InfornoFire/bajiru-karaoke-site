@@ -62,11 +62,8 @@ CREATE TABLE IF NOT EXISTS artists (
 CREATE TABLE IF NOT EXISTS tags (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT,
     name VARCHAR(64) NOT NULL,
-    kind VARCHAR(64) NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE INDEX (name),
-    INDEX (kind),
-    CONSTRAINT proper_tag_kind CHECK (kind REGEXP '(genre)|(modifier)|(misc)')
+    UNIQUE INDEX (name)
 ) ENGINE = InnoDB;
 
 -- Lyrics
@@ -131,6 +128,7 @@ CREATE TABLE IF NOT EXISTS song_original_artists (
 CREATE TABLE IF NOT EXISTS song_tags (
     song_id INT UNSIGNED NOT NULL REFERENCES songs (id),
     tag_id INT UNSIGNED NOT NULL REFERENCES tags (id),
+    kind VARCHAR(32) NOT NULL,
     PRIMARY KEY (song_id, tag_id),
     INDEX (tag_id)
 ) ENGINE = InnoDB;
@@ -165,6 +163,15 @@ CREATE TABLE IF NOT EXISTS performance_songs (
     song_id INT UNSIGNED NOT NULL REFERENCES songs (id),
     PRIMARY KEY (performance_id, song_id),
     INDEX (song_id)
+) ENGINE = InnoDB;
+
+-- Performance <-> Tag (M2M)
+CREATE TABLE IF NOT EXISTS performance_tags (
+    performance_id INT UNSIGNED NOT NULL REFERENCES performances (id),
+    tag_id INT UNSIGNED NOT NULL REFERENCES tags (id),
+    kind VARCHAR(32) NOT NULL,
+    PRIMARY KEY (performance_id, tag_id),
+    INDEX (tag_id)
 ) ENGINE = InnoDB;
 
 -- Performance <-> Singer (M2M)

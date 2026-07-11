@@ -11,6 +11,7 @@ use crate::error::DbError;
 use crate::models::artist::Artist;
 use crate::models::performance::{NewPerformance, Performance, UpdatePerformance};
 use crate::models::song::Song;
+use crate::models::tag::TagWithKind;
 
 type Result<T> = std::result::Result<T, DbError>;
 
@@ -262,6 +263,48 @@ pub async fn get_singers_batch(
             });
     }
     Ok(by_performance)
+}
+
+/// Returns the tags for a performance with their kind from the `performance_tags` join table.
+pub async fn get_tags(
+    executor: impl Executor<'_, Database = MySql>,
+    performance_id: u32,
+) -> Result<Vec<TagWithKind>> {
+    sqlx::query_as::<_, TagWithKind>(
+        "SELECT t.id, t.name, pt.kind \
+         FROM tags t \
+         JOIN performance_tags pt ON pt.tag_id = t.id \
+         WHERE pt.performance_id = ?",
+    )
+    .bind(performance_id)
+    .fetch_all(executor)
+    .await
+    .map_err(DbError::from)
+}
+
+/// Replaces the full set of tags for a performance.
+///
+/// Must be called within a caller provided transaction for atomicity.
+pub async fn set_tags(
+    conn: &mut MySqlConnection,
+    performance_id: u32,
+    tags: &[(u32, &str)],
+) -> Result<()> {
+    sqlx::query("DELETE FROM performance_tags WHERE performance_id = ?")
+        .bind(performance_id)
+        .execute(&mut *conn)
+        .await
+        .map_err(DbError::from)?;
+    for &(tag_id, kind) in tags {
+        sqlx::query("INSERT INTO performance_tags (performance_id, tag_id, kind) VALUES (?, ?, ?)")
+            .bind(performance_id)
+            .bind(tag_id)
+            .bind(kind)
+            .execute(&mut *conn)
+            .await
+            .map_err(DbError::from)?;
+    }
+    Ok(())
 }
 
 /// Replaces the full set of singers for a performance.

@@ -13,7 +13,8 @@ use api_types::{
     common::{ArtistInfo, ErrorResponse, ImageInfo, TagInfo},
     lyrics::{LyricsResponse, UpdateLyricsRequest},
     pagination::{PagedResponse, PaginationParams},
-    songs::{CreateSongRequest, SongResponse, SongSummary, UpdateSongRequest},
+    songs::{CreateSongRequest, SongResponse, SongSummary, SongTagAssignment, UpdateSongRequest},
+    tags::SongTagKind,
 };
 
 #[derive(utoipa::OpenApi)]
@@ -33,6 +34,8 @@ use api_types::{
         SongResponse,
         CreateSongRequest,
         UpdateSongRequest,
+        SongTagAssignment,
+        SongTagKind,
         LyricsResponse,
         UpdateLyricsRequest,
         ArtistInfo,
@@ -88,7 +91,7 @@ async fn hydrate(pool: &MySqlPool, song: db::models::Song) -> Result<SongRespons
             name: t.name,
             kind: t.kind,
         })
-        .collect();
+        .collect::<Vec<_>>();
 
     let images = images
         .into_iter()
@@ -216,8 +219,9 @@ pub(crate) async fn create_song(
     )
     .await?;
 
+    let tag_pairs = tag_pairs(&req.tags);
     queries::songs::set_original_artists(&mut tx, song.id, &req.artist_ids).await?;
-    queries::songs::set_tags(&mut tx, song.id, &req.tag_ids).await?;
+    queries::songs::set_tags(&mut tx, song.id, &tag_pairs).await?;
     queries::songs::set_images(&mut tx, song.id, &req.image_ids).await?;
 
     tx.commit().await.map_err(DbError::Sqlx)?;
@@ -247,13 +251,21 @@ pub(crate) async fn update_song(
         .await?
         .ok_or(ApiError::NotFound)?;
 
+    let tag_pairs = tag_pairs(&req.tags);
     queries::songs::set_original_artists(&mut tx, id, &req.artist_ids).await?;
-    queries::songs::set_tags(&mut tx, id, &req.tag_ids).await?;
+    queries::songs::set_tags(&mut tx, id, &tag_pairs).await?;
     queries::songs::set_images(&mut tx, id, &req.image_ids).await?;
 
     tx.commit().await.map_err(DbError::Sqlx)?;
 
     Ok(Json(hydrate(&state.pool, song).await?))
+}
+
+fn tag_pairs(assignments: &[SongTagAssignment]) -> Vec<(u32, &str)> {
+    assignments
+        .iter()
+        .map(|a| (a.tag_id, a.kind.as_str()))
+        .collect()
 }
 
 #[utoipa::path(

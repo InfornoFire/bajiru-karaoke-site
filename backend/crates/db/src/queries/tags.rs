@@ -12,7 +12,7 @@ pub async fn get_by_id(
     executor: impl Executor<'_, Database = MySql>,
     id: u32,
 ) -> Result<Option<Tag>> {
-    sqlx::query_as::<_, Tag>("SELECT id, name, kind FROM tags WHERE id = ?")
+    sqlx::query_as::<_, Tag>("SELECT id, name FROM tags WHERE id = ?")
         .bind(id)
         .fetch_optional(executor)
         .await
@@ -21,35 +21,22 @@ pub async fn get_by_id(
 
 /// Returns all tags ordered by name.
 pub async fn list(executor: impl Executor<'_, Database = MySql>) -> Result<Vec<Tag>> {
-    sqlx::query_as::<_, Tag>("SELECT id, name, kind FROM tags ORDER BY name")
+    sqlx::query_as::<_, Tag>("SELECT id, name FROM tags ORDER BY name")
         .fetch_all(executor)
         .await
         .map_err(DbError::from)
 }
 
-/// Returns all tags of a specific kind, ordered by name.
-pub async fn list_by_kind(
-    executor: impl Executor<'_, Database = MySql>,
-    kind: &str,
-) -> Result<Vec<Tag>> {
-    sqlx::query_as::<_, Tag>("SELECT id, name, kind FROM tags WHERE kind = ? ORDER BY name")
-        .bind(kind)
-        .fetch_all(executor)
-        .await
-        .map_err(DbError::from)
-}
-
-/// Returns the tag with the given name and kind, creating it if it does not exist.
+/// Returns the tag with the given name, creating it if it does not exist.
 ///
 /// Uses `INSERT IGNORE` so concurrent inserts do not conflict.
 pub async fn get_or_create(conn: &mut MySqlConnection, new: &NewTag) -> Result<Tag> {
-    sqlx::query("INSERT IGNORE INTO tags (name, kind) VALUES (?, ?)")
+    sqlx::query("INSERT IGNORE INTO tags (name) VALUES (?)")
         .bind(&new.name)
-        .bind(&new.kind)
         .execute(&mut *conn)
         .await
         .map_err(DbError::from)?;
-    sqlx::query_as::<_, Tag>("SELECT id, name, kind FROM tags WHERE name = ?")
+    sqlx::query_as::<_, Tag>("SELECT id, name FROM tags WHERE name = ?")
         .bind(&new.name)
         .fetch_one(&mut *conn)
         .await

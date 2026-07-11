@@ -9,13 +9,21 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::common::{ArtistInfo, ImageInfo, TagInfo};
+use crate::tags::SongTagKind;
+
+/// A tag paired with its kind for application to a song.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct SongTagAssignment {
+    pub tag_id: u32,
+    pub kind: SongTagKind,
+}
 
 /// Request body for `POST /api/songs`.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct CreateSongRequest {
     pub title: String,
     pub artist_ids: Vec<u32>,
-    pub tag_ids: Vec<u32>,
+    pub tags: Vec<SongTagAssignment>,
     pub image_ids: Vec<u32>,
     /// Optional inline lyrics content. Creates a lyrics row in a single round trip.
     pub lyrics: Option<String>,
@@ -28,7 +36,7 @@ pub struct CreateSongRequest {
 pub struct UpdateSongRequest {
     pub title: String,
     pub artist_ids: Vec<u32>,
-    pub tag_ids: Vec<u32>,
+    pub tags: Vec<SongTagAssignment>,
     pub image_ids: Vec<u32>,
 }
 
