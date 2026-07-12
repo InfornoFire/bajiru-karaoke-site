@@ -1,6 +1,7 @@
 //! Query functions for the `tags` table.
 
 use sqlx::{Executor, MySql, MySqlConnection};
+use uuid::Uuid;
 
 use crate::error::DbError;
 use crate::models::tag::{NewTag, Tag};
@@ -10,7 +11,7 @@ type Result<T> = std::result::Result<T, DbError>;
 /// Fetches a tag by ID.
 pub async fn get_by_id(
     executor: impl Executor<'_, Database = MySql>,
-    id: u32,
+    id: Uuid,
 ) -> Result<Option<Tag>> {
     sqlx::query_as::<_, Tag>("SELECT id, name FROM tags WHERE id = ?")
         .bind(id)
@@ -29,7 +30,7 @@ pub async fn list(executor: impl Executor<'_, Database = MySql>) -> Result<Vec<T
 
 /// Returns the tag with the given name, creating it if it does not exist.
 pub async fn get_or_create(conn: &mut MySqlConnection, new: &NewTag) -> Result<Tag> {
-    sqlx::query("INSERT IGNORE INTO tags (name) VALUES (?)")
+    sqlx::query("INSERT INTO tags (name) VALUES (?) ON DUPLICATE KEY UPDATE id = id")
         .bind(&new.name)
         .execute(&mut *conn)
         .await
@@ -42,7 +43,7 @@ pub async fn get_or_create(conn: &mut MySqlConnection, new: &NewTag) -> Result<T
 }
 
 /// Deletes a tag by ID. Returns `true` if a row was deleted.
-pub async fn delete(executor: impl Executor<'_, Database = MySql>, id: u32) -> Result<bool> {
+pub async fn delete(executor: impl Executor<'_, Database = MySql>, id: Uuid) -> Result<bool> {
     sqlx::query("DELETE FROM tags WHERE id = ?")
         .bind(id)
         .execute(executor)

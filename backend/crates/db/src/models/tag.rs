@@ -1,18 +1,19 @@
 //! Tag model.
 
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 /// A tag record from the `tags` table.
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
 pub struct Tag {
-    pub id: u32,
+    pub id: Uuid,
     pub name: String,
 }
 
 /// A tag joined with its kind from an entity-specific join table.
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
 pub struct TagWithKind {
-    pub id: u32,
+    pub id: Uuid,
     pub name: String,
     pub kind: String,
 }

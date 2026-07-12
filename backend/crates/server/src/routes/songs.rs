@@ -8,6 +8,7 @@ use axum::{
     http::StatusCode,
     routing::get,
 };
+use uuid::Uuid;
 
 use api_types::{
     common::{ArtistInfo, ErrorResponse, ImageInfo, TagInfo},
@@ -132,7 +133,7 @@ pub(crate) async fn list_songs(
         queries::songs::list(&state.pool, limit, offset),
     )?;
 
-    let song_ids: Vec<u32> = songs.iter().map(|s| s.id).collect();
+    let song_ids: Vec<Uuid> = songs.iter().map(|s| s.id).collect();
     let mut artists_by_song =
         queries::songs::get_original_artists_batch(&state.pool, &song_ids).await?;
 
@@ -169,7 +170,7 @@ pub(crate) async fn list_songs(
 #[utoipa::path(
     get,
     path = "/api/songs/{id}",
-    params(("id" = u32, Path, description = "Song ID")),
+    params(("id" = Uuid, Path, description = "Song ID")),
     responses(
         (status = 200, description = "Song detail", body = SongResponse),
         (status = 404, description = "Not found", body = ErrorResponse),
@@ -178,7 +179,7 @@ pub(crate) async fn list_songs(
 )]
 pub(crate) async fn get_song(
     State(state): State<AppState>,
-    Path(id): Path<u32>,
+    Path(id): Path<Uuid>,
 ) -> Result<Json<SongResponse>, ApiError> {
     let song = queries::songs::get_by_id(&state.pool, id)
         .await?
@@ -232,7 +233,7 @@ pub(crate) async fn create_song(
 #[utoipa::path(
     put,
     path = "/api/songs/{id}",
-    params(("id" = u32, Path, description = "Song ID")),
+    params(("id" = Uuid, Path, description = "Song ID")),
     request_body = UpdateSongRequest,
     responses(
         (status = 200, description = "Updated song", body = SongResponse),
@@ -242,7 +243,7 @@ pub(crate) async fn create_song(
 )]
 pub(crate) async fn update_song(
     State(state): State<AppState>,
-    Path(id): Path<u32>,
+    Path(id): Path<Uuid>,
     Json(req): Json<UpdateSongRequest>,
 ) -> Result<Json<SongResponse>, ApiError> {
     let mut tx = state.pool.begin().await.map_err(DbError::Sqlx)?;
@@ -261,7 +262,7 @@ pub(crate) async fn update_song(
     Ok(Json(hydrate(&state.pool, song).await?))
 }
 
-fn tag_pairs(assignments: &[SongTagAssignment]) -> Vec<(u32, &str)> {
+fn tag_pairs(assignments: &[SongTagAssignment]) -> Vec<(Uuid, &str)> {
     assignments
         .iter()
         .map(|a| (a.tag_id, a.kind.as_str()))
@@ -271,7 +272,7 @@ fn tag_pairs(assignments: &[SongTagAssignment]) -> Vec<(u32, &str)> {
 #[utoipa::path(
     delete,
     path = "/api/songs/{id}",
-    params(("id" = u32, Path, description = "Song ID")),
+    params(("id" = Uuid, Path, description = "Song ID")),
     responses(
         (status = 204, description = "Deleted"),
         (status = 404, description = "Not found", body = ErrorResponse),
@@ -280,7 +281,7 @@ fn tag_pairs(assignments: &[SongTagAssignment]) -> Vec<(u32, &str)> {
 )]
 pub(crate) async fn delete_song(
     State(state): State<AppState>,
-    Path(id): Path<u32>,
+    Path(id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
     let found = queries::songs::delete(&state.pool, id).await?;
     if found {

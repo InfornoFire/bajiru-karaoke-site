@@ -5,11 +5,12 @@
 
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use uuid::Uuid;
 
 /// A tag record returned by tag endpoints.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct TagResponse {
-    pub id: u32,
+    pub id: Uuid,
     pub name: String,
 }
 

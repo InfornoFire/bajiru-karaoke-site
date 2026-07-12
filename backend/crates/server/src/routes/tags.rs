@@ -6,6 +6,7 @@ use axum::{
     http::StatusCode,
     routing::get,
 };
+use uuid::Uuid;
 
 use api_types::{
     common::ErrorResponse,
@@ -58,7 +59,7 @@ pub(crate) async fn list_tags(
 #[utoipa::path(
     get,
     path = "/api/tags/{id}",
-    params(("id" = u32, Path, description = "Tag ID")),
+    params(("id" = Uuid, Path, description = "Tag ID")),
     responses(
         (status = 200, description = "Tag detail", body = TagResponse),
         (status = 404, description = "Not found", body = ErrorResponse),
@@ -67,7 +68,7 @@ pub(crate) async fn list_tags(
 )]
 pub(crate) async fn get_tag(
     State(state): State<AppState>,
-    Path(id): Path<u32>,
+    Path(id): Path<Uuid>,
 ) -> Result<Json<TagResponse>, ApiError> {
     let tag = queries::tags::get_by_id(&state.pool, id)
         .await?
@@ -96,7 +97,7 @@ pub(crate) async fn create_tag(
 #[utoipa::path(
     delete,
     path = "/api/tags/{id}",
-    params(("id" = u32, Path, description = "Tag ID")),
+    params(("id" = Uuid, Path, description = "Tag ID")),
     responses(
         (status = 204, description = "Deleted"),
         (status = 404, description = "Not found", body = ErrorResponse),
@@ -105,7 +106,7 @@ pub(crate) async fn create_tag(
 )]
 pub(crate) async fn delete_tag(
     State(state): State<AppState>,
-    Path(id): Path<u32>,
+    Path(id): Path<Uuid>,
 ) -> Result<StatusCode, ApiError> {
     let found = queries::tags::delete(&state.pool, id).await?;
     if found {

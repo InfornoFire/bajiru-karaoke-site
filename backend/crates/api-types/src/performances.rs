@@ -7,6 +7,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use uuid::Uuid;
 
 use crate::common::{ArtistInfo, MediaInfo, TagInfo};
 use crate::songs::SongSummary;
@@ -15,7 +16,7 @@ use crate::tags::PerformanceTagKind;
 /// A tag paired with its kind for application to a performance.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PerformanceTagAssignment {
-    pub tag_id: u32,
+    pub tag_id: Uuid,
     pub kind: PerformanceTagKind,
 }
 
@@ -26,8 +27,8 @@ pub struct CreatePerformanceRequest {
     pub performance_date: DateTime<Utc>,
     /// Duration in seconds.
     pub duration: Option<u32>,
-    pub song_ids: Vec<u32>,
-    pub singer_ids: Vec<u32>,
+    pub song_ids: Vec<Uuid>,
+    pub singer_ids: Vec<Uuid>,
     pub tags: Vec<PerformanceTagAssignment>,
     /// Optional inline lyrics content. Creates a lyrics row in a single round trip.
     pub lyrics: Option<String>,
@@ -42,8 +43,8 @@ pub struct UpdatePerformanceRequest {
     pub performance_date: DateTime<Utc>,
     /// Duration in seconds.
     pub duration: Option<u32>,
-    pub song_ids: Vec<u32>,
-    pub singer_ids: Vec<u32>,
+    pub song_ids: Vec<Uuid>,
+    pub singer_ids: Vec<Uuid>,
     pub tags: Vec<PerformanceTagAssignment>,
 }
 
@@ -52,7 +53,7 @@ pub struct UpdatePerformanceRequest {
 /// Contains enough to render a performance card without a follow up request.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PerformanceSummary {
-    pub id: u32,
+    pub id: Uuid,
     pub title: Option<String>,
     pub play_count: i32,
     /// Duration in seconds.
@@ -66,7 +67,7 @@ pub struct PerformanceSummary {
 /// Excludes lyrics; fetch those via `GET /api/performances/{id}/lyrics` on demand.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PerformanceResponse {
-    pub id: u32,
+    pub id: Uuid,
     pub title: Option<String>,
     pub play_count: i32,
     /// Duration in seconds.

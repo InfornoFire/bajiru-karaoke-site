@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 
 use sqlx::{Executor, MySql, MySqlConnection};
+use uuid::Uuid;
 
 use crate::error::DbError;
 use crate::models::artist::Artist;
@@ -18,7 +19,7 @@ type Result<T> = std::result::Result<T, DbError>;
 /// Fetches a performance by ID.
 pub async fn get_by_id(
     executor: impl Executor<'_, Database = MySql>,
-    id: u32,
+    id: Uuid,
 ) -> Result<Option<Performance>> {
     sqlx::query_as::<_, Performance>(
         "SELECT id, created_by, title, lyrics_id, play_count, duration, performance_date \
@@ -77,7 +78,7 @@ pub async fn create(conn: &mut MySqlConnection, new: &NewPerformance) -> Result<
 /// Updates a performance's mutable scalar fields. Returns `None` if the ID does not exist.
 pub async fn update(
     conn: &mut MySqlConnection,
-    id: u32,
+    id: Uuid,
     upd: &UpdatePerformance,
 ) -> Result<Option<Performance>> {
     sqlx::query_as::<_, Performance>(
@@ -98,8 +99,8 @@ pub async fn update(
 /// Sets the `lyrics_id` foreign key on a performance, or clears it with `None`.
 pub async fn update_lyrics_id(
     executor: impl Executor<'_, Database = MySql>,
-    id: u32,
-    lyrics_id: Option<u32>,
+    id: Uuid,
+    lyrics_id: Option<Uuid>,
 ) -> Result<()> {
     sqlx::query("UPDATE performances SET lyrics_id = ? WHERE id = ?")
         .bind(lyrics_id)
@@ -116,7 +117,7 @@ pub async fn update_lyrics_id(
 /// Songs are ordered by ID to give a deterministic result when multiple are linked.
 pub async fn get_fallback_song_lyrics(
     executor: impl Executor<'_, Database = MySql>,
-    performance_id: u32,
+    performance_id: Uuid,
 ) -> Result<Option<String>> {
     sqlx::query_scalar::<_, String>(
         "SELECT l.content \
@@ -134,7 +135,7 @@ pub async fn get_fallback_song_lyrics(
 }
 
 /// Deletes a performance by ID. Returns `true` if a row was deleted.
-pub async fn delete(executor: impl Executor<'_, Database = MySql>, id: u32) -> Result<bool> {
+pub async fn delete(executor: impl Executor<'_, Database = MySql>, id: Uuid) -> Result<bool> {
     sqlx::query("DELETE FROM performances WHERE id = ?")
         .bind(id)
         .execute(executor)
@@ -146,7 +147,7 @@ pub async fn delete(executor: impl Executor<'_, Database = MySql>, id: u32) -> R
 /// Atomically increments the play count for a performance.
 pub async fn increment_play_count(
     executor: impl Executor<'_, Database = MySql>,
-    id: u32,
+    id: Uuid,
 ) -> Result<()> {
     sqlx::query("UPDATE performances SET play_count = play_count + 1 WHERE id = ?")
         .bind(id)
@@ -159,7 +160,7 @@ pub async fn increment_play_count(
 /// Returns the songs linked to a performance via the `performance_songs` join table.
 pub async fn get_songs(
     executor: impl Executor<'_, Database = MySql>,
-    performance_id: u32,
+    performance_id: Uuid,
 ) -> Result<Vec<Song>> {
     sqlx::query_as::<_, Song>(
         "SELECT s.id, s.title, s.created_by, s.lyrics_id, s.date_added \
@@ -178,8 +179,8 @@ pub async fn get_songs(
 /// Must be called within a caller provided transaction for atomicity.
 pub async fn set_songs(
     conn: &mut MySqlConnection,
-    performance_id: u32,
-    song_ids: &[u32],
+    performance_id: Uuid,
+    song_ids: &[Uuid],
 ) -> Result<()> {
     sqlx::query("DELETE FROM performance_songs WHERE performance_id = ?")
         .bind(performance_id)
@@ -200,7 +201,7 @@ pub async fn set_songs(
 /// Returns the singers for a performance via the `performance_singers` join table.
 pub async fn get_singers(
     executor: impl Executor<'_, Database = MySql>,
-    performance_id: u32,
+    performance_id: Uuid,
 ) -> Result<Vec<Artist>> {
     sqlx::query_as::<_, Artist>(
         "SELECT a.id, a.name, a.description \
@@ -219,16 +220,16 @@ pub async fn get_singers(
 /// Performances with no singers are absent from the returned map.
 pub async fn get_singers_batch(
     executor: impl Executor<'_, Database = MySql>,
-    performance_ids: &[u32],
-) -> Result<HashMap<u32, Vec<Artist>>> {
+    performance_ids: &[Uuid],
+) -> Result<HashMap<Uuid, Vec<Artist>>> {
     if performance_ids.is_empty() {
         return Ok(HashMap::new());
     }
 
     #[derive(sqlx::FromRow)]
     struct Row {
-        performance_id: u32,
-        id: u32,
+        performance_id: Uuid,
+        id: Uuid,
         name: String,
         description: Option<String>,
     }
@@ -251,7 +252,7 @@ pub async fn get_singers_batch(
         .await
         .map_err(DbError::from)?;
 
-    let mut by_performance: HashMap<u32, Vec<Artist>> = HashMap::new();
+    let mut by_performance: HashMap<Uuid, Vec<Artist>> = HashMap::new();
     for row in rows {
         by_performance
             .entry(row.performance_id)
@@ -268,7 +269,7 @@ pub async fn get_singers_batch(
 /// Returns the tags for a performance with their kind from the `performance_tags` join table.
 pub async fn get_tags(
     executor: impl Executor<'_, Database = MySql>,
-    performance_id: u32,
+    performance_id: Uuid,
 ) -> Result<Vec<TagWithKind>> {
     sqlx::query_as::<_, TagWithKind>(
         "SELECT t.id, t.name, pt.kind \
@@ -287,8 +288,8 @@ pub async fn get_tags(
 /// Must be called within a caller provided transaction for atomicity.
 pub async fn set_tags(
     conn: &mut MySqlConnection,
-    performance_id: u32,
-    tags: &[(u32, &str)],
+    performance_id: Uuid,
+    tags: &[(Uuid, &str)],
 ) -> Result<()> {
     sqlx::query("DELETE FROM performance_tags WHERE performance_id = ?")
         .bind(performance_id)
@@ -312,8 +313,8 @@ pub async fn set_tags(
 /// Must be called within a caller provided transaction for atomicity.
 pub async fn set_singers(
     conn: &mut MySqlConnection,
-    performance_id: u32,
-    artist_ids: &[u32],
+    performance_id: Uuid,
+    artist_ids: &[Uuid],
 ) -> Result<()> {
     sqlx::query("DELETE FROM performance_singers WHERE performance_id = ?")
         .bind(performance_id)
