@@ -43,6 +43,7 @@ use api_types::{
 pub(crate) struct SongsApi;
 use db::{
     MySqlPool,
+    error::DbError,
     models::{NewLyrics, NewSong, UpdateSong},
     queries,
 };
@@ -179,16 +180,18 @@ pub(crate) async fn create_song(
     State(state): State<AppState>,
     Json(req): Json<CreateSongRequest>,
 ) -> Result<(StatusCode, Json<SongResponse>), ApiError> {
+    let mut tx = state.pool.begin().await.map_err(DbError::Sqlx)?;
+
     let lyrics_id = match req.lyrics {
         Some(content) => {
-            let l = queries::lyrics::create(&state.pool, &NewLyrics { content }).await?;
+            let l = queries::lyrics::create(&mut tx, &NewLyrics { content }).await?;
             Some(l.id)
         }
         None => None,
     };
 
     let song = queries::songs::create(
-        &state.pool,
+        &mut tx,
         &NewSong {
             title: req.title,
             created_by: None,
@@ -197,9 +200,11 @@ pub(crate) async fn create_song(
     )
     .await?;
 
-    queries::songs::set_original_artists(&state.pool, song.id, &req.artist_ids).await?;
-    queries::songs::set_tags(&state.pool, song.id, &req.tag_ids).await?;
-    queries::songs::set_images(&state.pool, song.id, &req.image_ids).await?;
+    queries::songs::set_original_artists(&mut tx, song.id, &req.artist_ids).await?;
+    queries::songs::set_tags(&mut tx, song.id, &req.tag_ids).await?;
+    queries::songs::set_images(&mut tx, song.id, &req.image_ids).await?;
+
+    tx.commit().await.map_err(DbError::Sqlx)?;
 
     Ok((StatusCode::CREATED, Json(hydrate(&state.pool, song).await?)))
 }
@@ -220,13 +225,17 @@ pub(crate) async fn update_song(
     Path(id): Path<u32>,
     Json(req): Json<UpdateSongRequest>,
 ) -> Result<Json<SongResponse>, ApiError> {
-    let song = queries::songs::update(&state.pool, id, &UpdateSong { title: req.title })
+    let mut tx = state.pool.begin().await.map_err(DbError::Sqlx)?;
+
+    let song = queries::songs::update(&mut tx, id, &UpdateSong { title: req.title })
         .await?
         .ok_or(ApiError::NotFound)?;
 
-    queries::songs::set_original_artists(&state.pool, id, &req.artist_ids).await?;
-    queries::songs::set_tags(&state.pool, id, &req.tag_ids).await?;
-    queries::songs::set_images(&state.pool, id, &req.image_ids).await?;
+    queries::songs::set_original_artists(&mut tx, id, &req.artist_ids).await?;
+    queries::songs::set_tags(&mut tx, id, &req.tag_ids).await?;
+    queries::songs::set_images(&mut tx, id, &req.image_ids).await?;
+
+    tx.commit().await.map_err(DbError::Sqlx)?;
 
     Ok(Json(hydrate(&state.pool, song).await?))
 }

@@ -18,7 +18,7 @@ use api_types::{
     common::ErrorResponse,
     lyrics::{LyricsResponse, UpdateLyricsRequest},
 };
-use db::{models::NewLyrics, queries};
+use db::{error::DbError, models::NewLyrics, queries};
 
 use crate::{error::ApiError, state::AppState};
 
@@ -83,14 +83,16 @@ pub(crate) async fn put_lyrics(
             queries::lyrics::update(&state.pool, existing_id, &req.content).await?;
         }
         None => {
+            let mut tx = state.pool.begin().await.map_err(DbError::Sqlx)?;
             let lyrics = queries::lyrics::create(
-                &state.pool,
+                &mut tx,
                 &NewLyrics {
                     content: req.content,
                 },
             )
             .await?;
-            queries::performances::update_lyrics_id(&state.pool, id, Some(lyrics.id)).await?;
+            queries::performances::update_lyrics_id(&mut *tx, id, Some(lyrics.id)).await?;
+            tx.commit().await.map_err(DbError::Sqlx)?;
         }
     }
 
@@ -119,12 +121,13 @@ pub(crate) async fn delete_lyrics(
         return Err(ApiError::NotFound);
     };
 
-    queries::performances::update_lyrics_id(&state.pool, id, None).await?;
-
-    let refs = queries::lyrics::reference_count(&state.pool, lyrics_id).await?;
+    let mut tx = state.pool.begin().await.map_err(DbError::Sqlx)?;
+    queries::performances::update_lyrics_id(&mut *tx, id, None).await?;
+    let refs = queries::lyrics::reference_count(&mut *tx, lyrics_id).await?;
     if refs == 0 {
-        queries::lyrics::delete(&state.pool, lyrics_id).await?;
+        queries::lyrics::delete(&mut *tx, lyrics_id).await?;
     }
+    tx.commit().await.map_err(DbError::Sqlx)?;
 
     Ok(StatusCode::NO_CONTENT)
 }

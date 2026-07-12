@@ -52,6 +52,7 @@ use api_types::{
 pub(crate) struct PerformancesApi;
 use db::{
     MySqlPool,
+    error::DbError,
     models::{
         NewLyrics, NewPerformance, NewPerformanceAudio, NewPerformanceVideo, UpdatePerformance,
     },
@@ -230,16 +231,18 @@ pub(crate) async fn create_performance(
     State(state): State<AppState>,
     Json(req): Json<CreatePerformanceRequest>,
 ) -> Result<(StatusCode, Json<PerformanceResponse>), ApiError> {
+    let mut tx = state.pool.begin().await.map_err(DbError::Sqlx)?;
+
     let lyrics_id = match req.lyrics {
         Some(content) => {
-            let l = queries::lyrics::create(&state.pool, &NewLyrics { content }).await?;
+            let l = queries::lyrics::create(&mut tx, &NewLyrics { content }).await?;
             Some(l.id)
         }
         None => None,
     };
 
     let perf = queries::performances::create(
-        &state.pool,
+        &mut tx,
         &NewPerformance {
             created_by: None,
             title: req.title,
@@ -250,8 +253,10 @@ pub(crate) async fn create_performance(
     )
     .await?;
 
-    queries::performances::set_songs(&state.pool, perf.id, &req.song_ids).await?;
-    queries::performances::set_singers(&state.pool, perf.id, &req.singer_ids).await?;
+    queries::performances::set_songs(&mut tx, perf.id, &req.song_ids).await?;
+    queries::performances::set_singers(&mut tx, perf.id, &req.singer_ids).await?;
+
+    tx.commit().await.map_err(DbError::Sqlx)?;
 
     Ok((StatusCode::CREATED, Json(hydrate(&state.pool, perf).await?)))
 }
@@ -272,8 +277,10 @@ pub(crate) async fn update_performance(
     Path(id): Path<u32>,
     Json(req): Json<UpdatePerformanceRequest>,
 ) -> Result<Json<PerformanceResponse>, ApiError> {
+    let mut tx = state.pool.begin().await.map_err(DbError::Sqlx)?;
+
     let perf = queries::performances::update(
-        &state.pool,
+        &mut tx,
         id,
         &UpdatePerformance {
             title: req.title,
@@ -284,8 +291,10 @@ pub(crate) async fn update_performance(
     .await?
     .ok_or(ApiError::NotFound)?;
 
-    queries::performances::set_songs(&state.pool, id, &req.song_ids).await?;
-    queries::performances::set_singers(&state.pool, id, &req.singer_ids).await?;
+    queries::performances::set_songs(&mut tx, id, &req.song_ids).await?;
+    queries::performances::set_singers(&mut tx, id, &req.singer_ids).await?;
+
+    tx.commit().await.map_err(DbError::Sqlx)?;
 
     Ok(Json(hydrate(&state.pool, perf).await?))
 }
@@ -365,8 +374,9 @@ pub(crate) async fn upload_audio(
     let ext = media::resolve_ext(media::MediaKind::Audio, &content_type, filename.as_deref())?;
     let saved = state.store.save("audio", ext, &data).await?;
 
+    let mut conn = state.pool.acquire().await.map_err(DbError::Sqlx)?;
     let audio = queries::performance_audios::create(
-        &state.pool,
+        &mut conn,
         &NewPerformanceAudio {
             performance_id: id,
             public_url: saved.public_url,
@@ -441,8 +451,9 @@ pub(crate) async fn upload_video(
     let ext = media::resolve_ext(media::MediaKind::Video, &content_type, filename.as_deref())?;
     let saved = state.store.save("video", ext, &data).await?;
 
+    let mut conn = state.pool.acquire().await.map_err(DbError::Sqlx)?;
     let video = queries::performance_videos::create(
-        &state.pool,
+        &mut conn,
         &NewPerformanceVideo {
             performance_id: id,
             public_url: saved.public_url,
