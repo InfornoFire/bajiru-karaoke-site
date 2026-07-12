@@ -1,12 +1,23 @@
-//! Tag kind enums for per-entity tag classification.
+//! Tag resource types and per-entity kind enums.
 //!
-//! Kind is a property of how a tag is applied to a specific entity, not of the tag
-//! itself. Each entity type defines its own valid kind set here, and the database
-//! stores the serialized string without a constraint. Invalid values are rejected at
-//! deserialization before any query runs.
+//! Tags are a shared name pool. Kind is absent from the tag itself and lives on
+//! each entity's join table, enforced at deserialization.
 
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+
+/// A tag record returned by tag endpoints.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct TagResponse {
+    pub id: u32,
+    pub name: String,
+}
+
+/// Request body for `POST /api/tags`.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct CreateTagRequest {
+    pub name: String,
+}
 
 /// Valid kind values when applying a tag to a song.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
