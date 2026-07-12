@@ -46,8 +46,6 @@ pub async fn list_for_user(
 }
 
 /// Inserts a capability if it does not already exist, then returns the row.
-///
-/// Uses `INSERT IGNORE` so concurrent inserts do not conflict.
 pub async fn create(conn: &mut MySqlConnection, new: &NewCapability) -> Result<Capability> {
     sqlx::query("INSERT IGNORE INTO capabilities (title) VALUES (?)")
         .bind(&new.title)

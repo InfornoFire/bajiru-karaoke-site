@@ -28,8 +28,6 @@ pub async fn list(executor: impl Executor<'_, Database = MySql>) -> Result<Vec<T
 }
 
 /// Returns the tag with the given name, creating it if it does not exist.
-///
-/// Uses `INSERT IGNORE` so concurrent inserts do not conflict.
 pub async fn get_or_create(conn: &mut MySqlConnection, new: &NewTag) -> Result<Tag> {
     sqlx::query("INSERT IGNORE INTO tags (name) VALUES (?)")
         .bind(&new.name)
