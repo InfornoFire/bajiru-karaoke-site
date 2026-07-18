@@ -7,6 +7,7 @@ mod pagination;
 mod routes;
 mod state;
 mod storage;
+mod tasks;
 
 use std::sync::Arc;
 
@@ -72,6 +73,8 @@ async fn main() {
         discord_oauth,
         http_client,
     };
+    tokio::spawn(tasks::session_cleanup::run(state.pool.clone()));
+
     let app = routes::build_router(state);
     let addr = format!("0.0.0.0:{}", config.port);
     let listener = tokio::net::TcpListener::bind(&addr)
