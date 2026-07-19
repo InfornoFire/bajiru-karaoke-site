@@ -6,7 +6,9 @@ use utoipa_swagger_ui::SwaggerUi;
 
 use crate::{
     auth::AuthApi,
-    routes::{performances::PerformancesApi, songs::SongsApi, tags::TagsApi},
+    routes::{
+        performances::PerformancesApi, playlists::PlaylistsApi, songs::SongsApi, tags::TagsApi,
+    },
     state::AppState,
 };
 
@@ -14,6 +16,7 @@ use crate::{
 pub fn router() -> Router<AppState> {
     let mut spec = SongsApi::openapi();
     spec.merge(PerformancesApi::openapi());
+    spec.merge(PlaylistsApi::openapi());
     spec.merge(TagsApi::openapi());
     spec.merge(AuthApi::openapi());
 

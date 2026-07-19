@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use uuid::Uuid;
 
 /// Valid kind values for a playlist.
 ///
@@ -24,4 +25,39 @@ impl PlaylistKind {
             Self::Favorites => "favorites",
         }
     }
+}
+
+/// Request body for `POST /api/playlists`.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct CreatePlaylistRequest {
+    pub title: String,
+    pub description: Option<String>,
+    pub kind: PlaylistKind,
+    pub is_public: bool,
+}
+
+/// Request body for `PUT /api/playlists/{id}`.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct UpdatePlaylistRequest {
+    pub title: String,
+    pub description: Option<String>,
+    pub kind: PlaylistKind,
+    pub is_public: bool,
+}
+
+/// Full playlist metadata returned by detail and list endpoints.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct PlaylistResponse {
+    pub id: Uuid,
+    pub title: String,
+    pub description: Option<String>,
+    pub kind: PlaylistKind,
+    pub is_public: bool,
+    pub created_by: Option<Uuid>,
+}
+
+/// Request body for `POST /api/playlists/{id}/performances`.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct AddPerformanceRequest {
+    pub performance_id: Uuid,
 }
