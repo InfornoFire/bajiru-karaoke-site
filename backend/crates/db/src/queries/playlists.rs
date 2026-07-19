@@ -58,6 +58,36 @@ pub async fn list_by_user(
     .map_err(DbError::from)
 }
 
+/// Returns only public playlists created by a specific user.
+pub async fn list_public_by_user(
+    executor: impl Executor<'_, Database = MySql>,
+    user_id: Uuid,
+) -> Result<Vec<Playlist>> {
+    sqlx::query_as::<_, Playlist>(
+        "SELECT id, title, description, kind, is_public, created_by FROM playlists \
+         WHERE created_by = ? AND is_public = TRUE ORDER BY id",
+    )
+    .bind(user_id)
+    .fetch_all(executor)
+    .await
+    .map_err(DbError::from)
+}
+
+/// Fetches the favorites playlist for a user, returning `None` if it does not exist.
+pub async fn get_favorites_by_user(
+    executor: impl Executor<'_, Database = MySql>,
+    user_id: Uuid,
+) -> Result<Option<Playlist>> {
+    sqlx::query_as::<_, Playlist>(
+        "SELECT id, title, description, kind, is_public, created_by FROM playlists \
+         WHERE created_by = ? AND kind = 'favorites'",
+    )
+    .bind(user_id)
+    .fetch_optional(executor)
+    .await
+    .map_err(DbError::from)
+}
+
 /// Inserts a new playlist and returns the created row.
 pub async fn create(conn: &mut MySqlConnection, new: &NewPlaylist) -> Result<Playlist> {
     sqlx::query_as::<_, Playlist>(

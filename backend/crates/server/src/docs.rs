@@ -8,6 +8,7 @@ use crate::{
     auth::AuthApi,
     routes::{
         performances::PerformancesApi, playlists::PlaylistsApi, songs::SongsApi, tags::TagsApi,
+        users::UsersApi,
     },
     state::AppState,
 };
@@ -18,6 +19,7 @@ pub fn router() -> Router<AppState> {
     spec.merge(PerformancesApi::openapi());
     spec.merge(PlaylistsApi::openapi());
     spec.merge(TagsApi::openapi());
+    spec.merge(UsersApi::openapi());
     spec.merge(AuthApi::openapi());
 
     Router::new().merge(SwaggerUi::new("/docs").url("/docs/openapi.json", spec))
