@@ -21,9 +21,7 @@ use db::{
     queries,
 };
 
-use crate::{auth::middleware::AuthUser, error::ApiError, state::AppState};
-
-const CAPABILITY_VIEW_PRIVATE_PLAYLISTS: &str = "playlists:view_private";
+use crate::{auth::middleware::AuthUser, capabilities, error::ApiError, state::AppState};
 
 #[derive(utoipa::OpenApi)]
 #[openapi(
@@ -103,7 +101,7 @@ pub(crate) async fn list_playlists(
     let can_view_private = auth.is_some_and(|u| {
         u.capabilities
             .iter()
-            .any(|c| c == CAPABILITY_VIEW_PRIVATE_PLAYLISTS)
+            .any(|c| c == capabilities::VIEW_PRIVATE_PLAYLISTS)
     });
     let playlists = if can_view_private {
         queries::playlists::list(&state.pool).await?

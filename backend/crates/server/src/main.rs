@@ -1,4 +1,5 @@
 mod auth;
+mod capabilities;
 mod config;
 mod docs;
 mod error;
