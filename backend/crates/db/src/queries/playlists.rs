@@ -14,7 +14,7 @@ pub async fn get_by_id(
     id: Uuid,
 ) -> Result<Option<Playlist>> {
     sqlx::query_as::<_, Playlist>(
-        "SELECT id, title, description, kind, created_by FROM playlists WHERE id = ?",
+        "SELECT id, title, description, kind, is_public, created_by FROM playlists WHERE id = ?",
     )
     .bind(id)
     .fetch_optional(executor)
@@ -22,10 +22,21 @@ pub async fn get_by_id(
     .map_err(DbError::from)
 }
 
-/// Returns all playlists ordered by ID.
+/// Returns all playlists ordered by ID, including private.
 pub async fn list(executor: impl Executor<'_, Database = MySql>) -> Result<Vec<Playlist>> {
     sqlx::query_as::<_, Playlist>(
-        "SELECT id, title, description, kind, created_by FROM playlists ORDER BY id",
+        "SELECT id, title, description, kind, is_public, created_by FROM playlists ORDER BY id",
+    )
+    .fetch_all(executor)
+    .await
+    .map_err(DbError::from)
+}
+
+/// Returns only public playlists ordered by ID.
+pub async fn list_public(executor: impl Executor<'_, Database = MySql>) -> Result<Vec<Playlist>> {
+    sqlx::query_as::<_, Playlist>(
+        "SELECT id, title, description, kind, is_public, created_by FROM playlists \
+         WHERE is_public = TRUE ORDER BY id",
     )
     .fetch_all(executor)
     .await
@@ -38,7 +49,7 @@ pub async fn list_by_user(
     user_id: Uuid,
 ) -> Result<Vec<Playlist>> {
     sqlx::query_as::<_, Playlist>(
-        "SELECT id, title, description, kind, created_by FROM playlists \
+        "SELECT id, title, description, kind, is_public, created_by FROM playlists \
          WHERE created_by = ? ORDER BY id",
     )
     .bind(user_id)
@@ -50,12 +61,14 @@ pub async fn list_by_user(
 /// Inserts a new playlist and returns the created row.
 pub async fn create(conn: &mut MySqlConnection, new: &NewPlaylist) -> Result<Playlist> {
     sqlx::query_as::<_, Playlist>(
-        "INSERT INTO playlists (title, description, kind, created_by) VALUES (?, ?, ?, ?) \
-         RETURNING id, title, description, kind, created_by",
+        "INSERT INTO playlists (title, description, kind, is_public, created_by) \
+         VALUES (?, ?, ?, ?, ?) \
+         RETURNING id, title, description, kind, is_public, created_by",
     )
     .bind(&new.title)
     .bind(&new.description)
     .bind(&new.kind)
+    .bind(new.is_public)
     .bind(new.created_by)
     .fetch_one(conn)
     .await
@@ -69,12 +82,13 @@ pub async fn update(
     upd: &UpdatePlaylist,
 ) -> Result<Option<Playlist>> {
     sqlx::query_as::<_, Playlist>(
-        "UPDATE playlists SET title = ?, description = ?, kind = ? WHERE id = ? \
-         RETURNING id, title, description, kind, created_by",
+        "UPDATE playlists SET title = ?, description = ?, kind = ?, is_public = ? WHERE id = ? \
+         RETURNING id, title, description, kind, is_public, created_by",
     )
     .bind(&upd.title)
     .bind(&upd.description)
     .bind(&upd.kind)
+    .bind(upd.is_public)
     .bind(id)
     .fetch_optional(conn)
     .await
@@ -82,10 +96,13 @@ pub async fn update(
 }
 
 /// Inserts favorites playlist for a new user.
+///
+/// Favorites playlists are private by default.
 pub async fn create_favorites(conn: &mut MySqlConnection, user_id: Uuid) -> Result<Playlist> {
     sqlx::query_as::<_, Playlist>(
-        "INSERT INTO playlists (title, kind, created_by) VALUES ('Favorites', 'favorites', ?) \
-         RETURNING id, title, description, kind, created_by",
+        "INSERT INTO playlists (title, kind, is_public, created_by) \
+         VALUES ('Favorites', 'favorites', FALSE, ?) \
+         RETURNING id, title, description, kind, is_public, created_by",
     )
     .bind(user_id)
     .fetch_one(conn)

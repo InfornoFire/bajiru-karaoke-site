@@ -89,10 +89,12 @@ CREATE TABLE IF NOT EXISTS playlists (
     title VARCHAR(256) NOT NULL,
     description TEXT NULL,
     kind VARCHAR(64) NOT NULL,
+    is_public BOOLEAN NOT NULL DEFAULT TRUE,
     created_by BINARY(16) NULL REFERENCES users (id),
     PRIMARY KEY (id),
     INDEX (title),
-    INDEX (kind)
+    INDEX (kind),
+    INDEX (is_public)
 ) ENGINE = InnoDB;
 
 -- Songs
