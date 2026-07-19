@@ -81,6 +81,18 @@ pub async fn update(
     .map_err(DbError::from)
 }
 
+/// Inserts favorites playlist for a new user.
+pub async fn create_favorites(conn: &mut MySqlConnection, user_id: Uuid) -> Result<Playlist> {
+    sqlx::query_as::<_, Playlist>(
+        "INSERT INTO playlists (title, kind, created_by) VALUES ('Favorites', 'favorites', ?) \
+         RETURNING id, title, description, kind, created_by",
+    )
+    .bind(user_id)
+    .fetch_one(conn)
+    .await
+    .map_err(DbError::from)
+}
+
 /// Deletes a playlist by ID. Returns `true` if a row was deleted.
 pub async fn delete(executor: impl Executor<'_, Database = MySql>, id: Uuid) -> Result<bool> {
     sqlx::query("DELETE FROM playlists WHERE id = ?")

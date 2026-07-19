@@ -92,8 +92,7 @@ CREATE TABLE IF NOT EXISTS playlists (
     created_by BINARY(16) NULL REFERENCES users (id),
     PRIMARY KEY (id),
     INDEX (title),
-    INDEX (kind),
-    CONSTRAINT proper_playlist_kind CHECK (kind REGEXP '(user)|(official)')
+    INDEX (kind)
 ) ENGINE = InnoDB;
 
 -- Songs
@@ -131,13 +130,6 @@ CREATE TABLE IF NOT EXISTS song_tags (
     kind VARCHAR(32) NOT NULL,
     PRIMARY KEY (song_id, tag_id),
     INDEX (tag_id)
-) ENGINE = InnoDB;
-
--- User <-> Favorite Song (M2M)
-CREATE TABLE IF NOT EXISTS user_favorite_songs (
-    user_id BINARY(16) NOT NULL REFERENCES users (id),
-    song_id BINARY(16) NOT NULL REFERENCES songs (id),
-    PRIMARY KEY (user_id, song_id)
 ) ENGINE = InnoDB;
 
 -- Performances
