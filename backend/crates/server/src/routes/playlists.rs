@@ -21,7 +21,9 @@ use db::{
     queries,
 };
 
-use crate::{error::ApiError, state::AppState};
+use crate::{auth::middleware::AuthUser, error::ApiError, state::AppState};
+
+const CAPABILITY_VIEW_PRIVATE_PLAYLISTS: &str = "playlists:view_private";
 
 #[derive(utoipa::OpenApi)]
 #[openapi(
@@ -90,14 +92,24 @@ fn to_response(p: db::models::Playlist) -> Result<PlaylistResponse, ApiError> {
     get,
     path = "/api/playlists",
     responses(
-        (status = 200, description = "All public playlists", body = Vec<PlaylistResponse>),
+        (status = 200, description = "Returns public playlists, or all playlists for users with sufficient permissions.", body = Vec<PlaylistResponse>),
     ),
     tag = "playlists"
 )]
 pub(crate) async fn list_playlists(
     State(state): State<AppState>,
+    auth: Option<AuthUser>,
 ) -> Result<Json<Vec<PlaylistResponse>>, ApiError> {
-    let playlists = queries::playlists::list_public(&state.pool).await?;
+    let can_view_private = auth.is_some_and(|u| {
+        u.capabilities
+            .iter()
+            .any(|c| c == CAPABILITY_VIEW_PRIVATE_PLAYLISTS)
+    });
+    let playlists = if can_view_private {
+        queries::playlists::list(&state.pool).await?
+    } else {
+        queries::playlists::list_public(&state.pool).await?
+    };
     let items = playlists
         .into_iter()
         .map(to_response)
