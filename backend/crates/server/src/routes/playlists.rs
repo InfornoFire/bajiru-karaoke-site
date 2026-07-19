@@ -142,6 +142,7 @@ pub(crate) async fn get_playlist(
     responses(
         (status = 201, description = "Created playlist", body = PlaylistResponse),
         (status = 401, description = "Not authenticated", body = ErrorResponse),
+        (status = 403, description = "Forbidden", body = ErrorResponse),
     ),
     tag = "playlists"
 )]
@@ -150,6 +151,12 @@ pub(crate) async fn create_playlist(
     auth: AuthUser,
     Json(req): Json<CreatePlaylistRequest>,
 ) -> Result<(StatusCode, Json<PlaylistResponse>), ApiError> {
+    if let Some(cap) = capabilities::required_create_playlist_capability(&req.kind)
+        && !auth.capabilities.iter().any(|c| c == cap)
+    {
+        return Err(ApiError::Forbidden);
+    }
+
     let mut conn = state.pool.acquire().await.map_err(DbError::Sqlx)?;
     let playlist = queries::playlists::create(
         &mut conn,
