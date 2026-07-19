@@ -94,7 +94,8 @@ CREATE TABLE IF NOT EXISTS playlists (
     PRIMARY KEY (id),
     INDEX (title),
     INDEX (kind),
-    INDEX (is_public)
+    INDEX (is_public),
+    INDEX (created_by, kind)
 ) ENGINE = InnoDB;
 
 -- Songs
