@@ -141,11 +141,13 @@ pub(crate) async fn get_playlist(
     request_body = CreatePlaylistRequest,
     responses(
         (status = 201, description = "Created playlist", body = PlaylistResponse),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
     ),
     tag = "playlists"
 )]
 pub(crate) async fn create_playlist(
     State(state): State<AppState>,
+    auth: AuthUser,
     Json(req): Json<CreatePlaylistRequest>,
 ) -> Result<(StatusCode, Json<PlaylistResponse>), ApiError> {
     let mut conn = state.pool.acquire().await.map_err(DbError::Sqlx)?;
@@ -156,7 +158,7 @@ pub(crate) async fn create_playlist(
             description: req.description,
             kind: req.kind.as_str().to_owned(),
             is_public: req.is_public,
-            created_by: None,
+            created_by: Some(auth.user_id),
         },
     )
     .await?;
