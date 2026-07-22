@@ -191,7 +191,11 @@ pub(crate) async fn update_playlist(
         .await?
         .ok_or(ApiError::NotFound)?;
 
-    if existing.created_by != Some(auth.user_id) {
+    let can_manage = existing.created_by == Some(auth.user_id)
+        || auth
+            .capabilities
+            .contains(capabilities::PLAYLISTS_MANAGE_ANY);
+    if !can_manage {
         return Err(ApiError::Forbidden);
     }
 
@@ -232,7 +236,11 @@ pub(crate) async fn delete_playlist(
         .await?
         .ok_or(ApiError::NotFound)?;
 
-    if playlist.created_by != Some(auth.user_id) {
+    let can_manage = playlist.created_by == Some(auth.user_id)
+        || auth
+            .capabilities
+            .contains(capabilities::PLAYLISTS_MANAGE_ANY);
+    if !can_manage {
         return Err(ApiError::Forbidden);
     }
 

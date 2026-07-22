@@ -8,6 +8,7 @@ use api_types::playlists::PlaylistKind;
 pub const PLAYLISTS_VIEW_PRIVATE: &str = "playlists:view_private";
 pub const PLAYLISTS_CREATE_OFFICIAL: &str = "playlists:create_official";
 pub const PLAYLISTS_CREATE_FAVORITES: &str = "playlists:create_favorites";
+pub const PLAYLISTS_MANAGE_ANY: &str = "playlists:manage_any";
 
 /// Returns the capability required to create a playlist of the given kind, or
 /// `None` if any authenticated user may create it.
