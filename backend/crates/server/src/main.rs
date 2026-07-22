@@ -1,6 +1,7 @@
 mod auth;
 mod capabilities;
 mod config;
+mod convert;
 mod docs;
 mod error;
 mod media;

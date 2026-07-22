@@ -14,7 +14,7 @@ use api_types::{
 };
 use db::queries;
 
-use crate::{auth::middleware::AuthUser, capabilities, error::ApiError, state::AppState};
+use crate::{auth::middleware::AuthUser, capabilities, convert, error::ApiError, state::AppState};
 
 #[derive(utoipa::OpenApi)]
 #[openapi(
@@ -35,27 +35,6 @@ fn can_view_private(auth: &Option<AuthUser>, user_id: Uuid) -> bool {
             || u.capabilities
                 .iter()
                 .any(|c| c == capabilities::VIEW_PRIVATE_PLAYLISTS)
-    })
-}
-
-fn to_response(p: db::models::Playlist) -> Result<PlaylistResponse, ApiError> {
-    let kind = match p.kind.as_str() {
-        "user" => PlaylistKind::User,
-        "official" => PlaylistKind::Official,
-        "favorites" => PlaylistKind::Favorites,
-        other => {
-            return Err(ApiError::Internal(format!(
-                "unknown playlist kind in database: {other}"
-            )));
-        }
-    };
-    Ok(PlaylistResponse {
-        id: p.id,
-        title: p.title,
-        description: p.description,
-        kind,
-        is_public: p.is_public,
-        created_by: p.created_by,
     })
 }
 
@@ -86,7 +65,7 @@ pub(crate) async fn list_user_playlists(
 
     let items = playlists
         .into_iter()
-        .map(to_response)
+        .map(convert::playlist_response)
         .collect::<Result<Vec<_>, _>>()?;
     Ok(Json(items))
 }

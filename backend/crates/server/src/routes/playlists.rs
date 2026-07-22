@@ -22,7 +22,7 @@ use db::{
     queries,
 };
 
-use crate::{auth::middleware::AuthUser, capabilities, error::ApiError, state::AppState};
+use crate::{auth::middleware::AuthUser, capabilities, convert, error::ApiError, state::AppState};
 
 #[derive(utoipa::OpenApi)]
 #[openapi(
@@ -67,27 +67,6 @@ pub fn router() -> Router<AppState> {
         )
 }
 
-fn to_response(p: db::models::Playlist) -> Result<PlaylistResponse, ApiError> {
-    let kind = match p.kind.as_str() {
-        "user" => PlaylistKind::User,
-        "official" => PlaylistKind::Official,
-        "favorites" => PlaylistKind::Favorites,
-        other => {
-            return Err(ApiError::Internal(format!(
-                "unknown playlist kind in database: {other}"
-            )));
-        }
-    };
-    Ok(PlaylistResponse {
-        id: p.id,
-        title: p.title,
-        description: p.description,
-        kind,
-        is_public: p.is_public,
-        created_by: p.created_by,
-    })
-}
-
 #[utoipa::path(
     get,
     path = "/api/playlists",
@@ -112,7 +91,7 @@ pub(crate) async fn list_playlists(
     };
     let items = playlists
         .into_iter()
-        .map(to_response)
+        .map(convert::playlist_response)
         .collect::<Result<Vec<_>, _>>()?;
     Ok(Json(items))
 }
@@ -134,7 +113,7 @@ pub(crate) async fn get_playlist(
     let playlist = queries::playlists::get_by_id(&state.pool, id)
         .await?
         .ok_or(ApiError::NotFound)?;
-    Ok(Json(to_response(playlist)?))
+    Ok(Json(convert::playlist_response(playlist)?))
 }
 
 #[utoipa::path(
@@ -171,7 +150,10 @@ pub(crate) async fn create_playlist(
         },
     )
     .await?;
-    Ok((StatusCode::CREATED, Json(to_response(playlist)?)))
+    Ok((
+        StatusCode::CREATED,
+        Json(convert::playlist_response(playlist)?),
+    ))
 }
 
 #[utoipa::path(
@@ -203,7 +185,7 @@ pub(crate) async fn update_playlist(
     )
     .await?
     .ok_or(ApiError::NotFound)?;
-    Ok(Json(to_response(playlist)?))
+    Ok(Json(convert::playlist_response(playlist)?))
 }
 
 #[utoipa::path(
