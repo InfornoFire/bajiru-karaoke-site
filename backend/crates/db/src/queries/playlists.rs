@@ -24,7 +24,7 @@ pub async fn get_by_id(
 }
 
 /// Returns all playlists ordered by ID, including private.
-pub async fn list(executor: impl Executor<'_, Database = MySql>) -> Result<Vec<Playlist>> {
+pub async fn list_all(executor: impl Executor<'_, Database = MySql>) -> Result<Vec<Playlist>> {
     sqlx::query_as::<_, Playlist>(
         "SELECT id, title, description, kind, is_public, created_by FROM playlists ORDER BY id",
     )

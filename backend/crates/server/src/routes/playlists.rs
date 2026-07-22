@@ -84,7 +84,7 @@ pub(crate) async fn list_playlists(
             .any(|c| c == capabilities::VIEW_PRIVATE_PLAYLISTS)
     });
     let playlists = if can_view_private {
-        queries::playlists::list(&state.pool).await?
+        queries::playlists::list_all(&state.pool).await?
     } else {
         queries::playlists::list_public(&state.pool).await?
     };
