@@ -58,6 +58,12 @@ pub struct PlaylistResponse {
 
 /// Request body for `POST /api/playlists/{id}/performances`.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct AddPerformanceRequest {
-    pub performance_id: Uuid,
+pub struct AddPerformancesRequest {
+    pub performance_ids: Vec<Uuid>,
+}
+
+/// Request body for `DELETE /api/playlists/{id}/performances`.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct RemovePerformancesRequest {
+    pub performance_ids: Vec<Uuid>,
 }

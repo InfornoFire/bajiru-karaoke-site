@@ -199,39 +199,64 @@ pub async fn set_performances(
     Ok(())
 }
 
-/// Appends a performance to the end of a playlist. No ops if already present.
+/// Appends multiple performances to the end of a playlist, skipping any already present.
 ///
-/// The `sort_order` is set to `MAX(sort_order) + 1`, defaulting to `0` for an
-/// empty playlist.
-pub async fn add_performance(
-    executor: impl Executor<'_, Database = MySql>,
+/// `sort_order` increments from the current maximum.
+pub async fn add_performances(
+    conn: &mut MySqlConnection,
     playlist_id: Uuid,
-    performance_id: Uuid,
+    performance_ids: &[Uuid],
 ) -> Result<()> {
-    sqlx::query(
-        "INSERT INTO playlist_performances (playlist_id, performance_id, sort_order) \
-         VALUES (?, ?, COALESCE(\
-             (SELECT MAX(sort_order) + 1 FROM playlist_performances WHERE playlist_id = ?), 0)) \
-         ON DUPLICATE KEY UPDATE playlist_id = playlist_id",
+    if performance_ids.is_empty() {
+        return Ok(());
+    }
+    let base: i32 = sqlx::query_scalar(
+        "SELECT COALESCE(MAX(sort_order) + 1, 0) \
+         FROM playlist_performances WHERE playlist_id = ?",
     )
     .bind(playlist_id)
-    .bind(performance_id)
-    .bind(playlist_id)
-    .execute(executor)
+    .fetch_one(&mut *conn)
     .await
-    .map(|_| ())
-    .map_err(DbError::from)
-}
-
-/// Removes a single performance from a playlist.
-pub async fn remove_performance(
-    executor: impl Executor<'_, Database = MySql>,
-    playlist_id: Uuid,
-    performance_id: Uuid,
-) -> Result<()> {
-    sqlx::query("DELETE FROM playlist_performances WHERE playlist_id = ? AND performance_id = ?")
+    .map_err(DbError::from)?;
+    for (pos, &performance_id) in performance_ids.iter().enumerate() {
+        sqlx::query(
+            "INSERT INTO playlist_performances (playlist_id, performance_id, sort_order) \
+             VALUES (?, ?, ?) \
+             ON DUPLICATE KEY UPDATE playlist_id = playlist_id",
+        )
         .bind(playlist_id)
         .bind(performance_id)
+        .bind(base + pos as i32)
+        .execute(&mut *conn)
+        .await
+        .map_err(DbError::from)?;
+    }
+    Ok(())
+}
+
+/// Removes multiple performances from a playlist, ignoring any not present.
+pub async fn remove_performances(
+    executor: impl Executor<'_, Database = MySql>,
+    playlist_id: Uuid,
+    performance_ids: &[Uuid],
+) -> Result<()> {
+    if performance_ids.is_empty() {
+        return Ok(());
+    }
+    let placeholders = performance_ids
+        .iter()
+        .map(|_| "?")
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
+        "DELETE FROM playlist_performances \
+         WHERE playlist_id = ? AND performance_id IN ({placeholders})"
+    );
+    let mut query = sqlx::query(sqlx::AssertSqlSafe(sql.as_str())).bind(playlist_id);
+    for &id in performance_ids {
+        query = query.bind(id);
+    }
+    query
         .execute(executor)
         .await
         .map(|_| ())

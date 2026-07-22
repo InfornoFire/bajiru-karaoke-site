@@ -12,8 +12,8 @@ use api_types::{
     common::{ArtistInfo, ErrorResponse},
     performances::PerformanceSummary,
     playlists::{
-        AddPerformanceRequest, CreatePlaylistRequest, PlaylistKind, PlaylistResponse,
-        UpdatePlaylistRequest,
+        AddPerformancesRequest, CreatePlaylistRequest, PlaylistKind, PlaylistResponse,
+        RemovePerformancesRequest, UpdatePlaylistRequest,
     },
 };
 use db::{
@@ -33,15 +33,16 @@ use crate::{auth::middleware::AuthUser, capabilities, convert, error::ApiError, 
         update_playlist,
         delete_playlist,
         list_playlist_performances,
-        add_playlist_performance,
-        remove_playlist_performance,
+        add_playlist_performances,
+        remove_playlist_performances,
     ),
     components(schemas(
         PlaylistResponse,
         PlaylistKind,
         CreatePlaylistRequest,
         UpdatePlaylistRequest,
-        AddPerformanceRequest,
+        AddPerformancesRequest,
+        RemovePerformancesRequest,
         PerformanceSummary,
         ErrorResponse,
     ))
@@ -59,11 +60,9 @@ pub fn router() -> Router<AppState> {
         )
         .route(
             "/{id}/performances",
-            get(list_playlist_performances).post(add_playlist_performance),
-        )
-        .route(
-            "/{id}/performances/{perf_id}",
-            axum::routing::delete(remove_playlist_performance),
+            get(list_playlist_performances)
+                .post(add_playlist_performances)
+                .delete(remove_playlist_performances),
         )
 }
 
@@ -297,45 +296,45 @@ pub(crate) async fn list_playlist_performances(
     post,
     path = "/api/playlists/{id}/performances",
     params(("id" = Uuid, Path, description = "Playlist ID")),
-    request_body = AddPerformanceRequest,
+    request_body = AddPerformancesRequest,
     responses(
-        (status = 204, description = "Performance added"),
+        (status = 204, description = "Performances added"),
         (status = 404, description = "Playlist not found", body = ErrorResponse),
     ),
     tag = "playlists"
 )]
-pub(crate) async fn add_playlist_performance(
+pub(crate) async fn add_playlist_performances(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
-    Json(req): Json<AddPerformanceRequest>,
+    Json(req): Json<AddPerformancesRequest>,
 ) -> Result<StatusCode, ApiError> {
     queries::playlists::get_by_id(&state.pool, id)
         .await?
         .ok_or(ApiError::NotFound)?;
-    queries::playlists::add_performance(&state.pool, id, req.performance_id).await?;
+    let mut conn = state.pool.acquire().await.map_err(DbError::Sqlx)?;
+    queries::playlists::add_performances(&mut conn, id, &req.performance_ids).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 #[utoipa::path(
     delete,
-    path = "/api/playlists/{id}/performances/{perf_id}",
-    params(
-        ("id" = Uuid, Path, description = "Playlist ID"),
-        ("perf_id" = Uuid, Path, description = "Performance ID"),
-    ),
+    path = "/api/playlists/{id}/performances",
+    params(("id" = Uuid, Path, description = "Playlist ID")),
+    request_body = RemovePerformancesRequest,
     responses(
-        (status = 204, description = "Performance removed"),
+        (status = 204, description = "Performances removed"),
         (status = 404, description = "Playlist not found", body = ErrorResponse),
     ),
     tag = "playlists"
 )]
-pub(crate) async fn remove_playlist_performance(
+pub(crate) async fn remove_playlist_performances(
     State(state): State<AppState>,
-    Path((id, perf_id)): Path<(Uuid, Uuid)>,
+    Path(id): Path<Uuid>,
+    Json(req): Json<RemovePerformancesRequest>,
 ) -> Result<StatusCode, ApiError> {
     queries::playlists::get_by_id(&state.pool, id)
         .await?
         .ok_or(ApiError::NotFound)?;
-    queries::playlists::remove_performance(&state.pool, id, perf_id).await?;
+    queries::playlists::remove_performances(&state.pool, id, &req.performance_ids).await?;
     Ok(StatusCode::NO_CONTENT)
 }
