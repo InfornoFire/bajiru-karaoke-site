@@ -1,5 +1,7 @@
 //! Axum extractor for authenticated requests.
 
+use std::collections::HashSet;
+
 use axum::extract::{FromRequestParts, OptionalFromRequestParts};
 use axum::http::request::Parts;
 use axum_extra::extract::CookieJar;
@@ -20,7 +22,7 @@ use super::session;
 /// Capabilities are looked up fresh on every request.
 pub struct AuthUser {
     pub user_id: Uuid,
-    pub capabilities: Vec<String>,
+    pub capabilities: HashSet<String>,
 }
 
 impl OptionalFromRequestParts<AppState> for AuthUser {

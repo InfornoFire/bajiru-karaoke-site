@@ -80,8 +80,7 @@ pub(crate) async fn list_playlists(
 ) -> Result<Json<Vec<PlaylistResponse>>, ApiError> {
     let can_view_private = auth.is_some_and(|u| {
         u.capabilities
-            .iter()
-            .any(|c| c == capabilities::VIEW_PRIVATE_PLAYLISTS)
+            .contains(capabilities::VIEW_PRIVATE_PLAYLISTS)
     });
     let playlists = if can_view_private {
         queries::playlists::list_all(&state.pool).await?
@@ -119,8 +118,7 @@ pub(crate) async fn get_playlist(
         let can_view = auth.as_ref().is_some_and(|u| {
             playlist.created_by == Some(u.user_id)
                 || u.capabilities
-                    .iter()
-                    .any(|c| c == capabilities::VIEW_PRIVATE_PLAYLISTS)
+                    .contains(capabilities::VIEW_PRIVATE_PLAYLISTS)
         });
         if !can_view {
             return Err(ApiError::Forbidden);
@@ -147,7 +145,7 @@ pub(crate) async fn create_playlist(
     Json(req): Json<CreatePlaylistRequest>,
 ) -> Result<(StatusCode, Json<PlaylistResponse>), ApiError> {
     if let Some(cap) = capabilities::required_create_playlist_capability(&req.kind)
-        && !auth.capabilities.iter().any(|c| c == cap)
+        && !auth.capabilities.contains(cap)
     {
         return Err(ApiError::Forbidden);
     }

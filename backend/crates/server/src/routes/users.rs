@@ -33,8 +33,7 @@ fn can_view_private(auth: &Option<AuthUser>, user_id: Uuid) -> bool {
     auth.as_ref().is_some_and(|u| {
         u.user_id == user_id
             || u.capabilities
-                .iter()
-                .any(|c| c == capabilities::VIEW_PRIVATE_PLAYLISTS)
+                .contains(capabilities::VIEW_PRIVATE_PLAYLISTS)
     })
 }
 
