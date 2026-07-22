@@ -4,6 +4,7 @@ use sqlx::{Executor, MySql, MySqlConnection};
 use uuid::Uuid;
 
 use crate::error::DbError;
+use crate::models::performance::Performance;
 use crate::models::playlist::{NewPlaylist, Playlist, UpdatePlaylist};
 
 type Result<T> = std::result::Result<T, DbError>;
@@ -150,14 +151,18 @@ pub async fn delete(executor: impl Executor<'_, Database = MySql>, id: Uuid) -> 
         .map_err(DbError::from)
 }
 
-/// Returns the performance IDs in a playlist, ordered by `sort_order`.
-pub async fn get_performance_ids(
+/// Returns performances in a playlist, ordered by `sort_order`.
+pub async fn get_performances_in_playlist(
     executor: impl Executor<'_, Database = MySql>,
     playlist_id: Uuid,
-) -> Result<Vec<Uuid>> {
-    sqlx::query_scalar::<_, Uuid>(
-        "SELECT performance_id FROM playlist_performances \
-         WHERE playlist_id = ? ORDER BY sort_order",
+) -> Result<Vec<Performance>> {
+    sqlx::query_as::<_, Performance>(
+        "SELECT p.id, p.created_by, p.title, p.lyrics_id, p.play_count, p.duration, \
+         p.performance_date \
+         FROM performances p \
+         JOIN playlist_performances pp ON pp.performance_id = p.id \
+         WHERE pp.playlist_id = ? \
+         ORDER BY pp.sort_order",
     )
     .bind(playlist_id)
     .fetch_all(executor)

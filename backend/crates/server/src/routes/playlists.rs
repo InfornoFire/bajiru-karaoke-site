@@ -9,7 +9,8 @@ use axum::{
 use uuid::Uuid;
 
 use api_types::{
-    common::ErrorResponse,
+    common::{ArtistInfo, ErrorResponse},
+    performances::PerformanceSummary,
     playlists::{
         AddPerformanceRequest, CreatePlaylistRequest, PlaylistKind, PlaylistResponse,
         UpdatePlaylistRequest,
@@ -41,6 +42,7 @@ use crate::{auth::middleware::AuthUser, capabilities, error::ApiError, state::Ap
         CreatePlaylistRequest,
         UpdatePlaylistRequest,
         AddPerformanceRequest,
+        PerformanceSummary,
         ErrorResponse,
     ))
 )]
@@ -231,7 +233,7 @@ pub(crate) async fn delete_playlist(
     path = "/api/playlists/{id}/performances",
     params(("id" = Uuid, Path, description = "Playlist ID")),
     responses(
-        (status = 200, description = "Ordered performance IDs in this playlist", body = Vec<Uuid>),
+        (status = 200, description = "Ordered performances in this playlist", body = Vec<PerformanceSummary>),
         (status = 404, description = "Not found", body = ErrorResponse),
     ),
     tag = "playlists"
@@ -239,12 +241,41 @@ pub(crate) async fn delete_playlist(
 pub(crate) async fn list_playlist_performances(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
-) -> Result<Json<Vec<Uuid>>, ApiError> {
+) -> Result<Json<Vec<PerformanceSummary>>, ApiError> {
     queries::playlists::get_by_id(&state.pool, id)
         .await?
         .ok_or(ApiError::NotFound)?;
-    let ids = queries::playlists::get_performance_ids(&state.pool, id).await?;
-    Ok(Json(ids))
+
+    let performances = queries::playlists::get_performances_in_playlist(&state.pool, id).await?;
+    let perf_ids: Vec<Uuid> = performances.iter().map(|p| p.id).collect();
+    let mut singers_by_perf =
+        queries::performances::get_singers_batch(&state.pool, &perf_ids).await?;
+
+    let items = performances
+        .into_iter()
+        .map(|p| {
+            let singers = singers_by_perf
+                .remove(&p.id)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|a| ArtistInfo {
+                    id: a.id,
+                    name: a.name,
+                    description: a.description,
+                })
+                .collect();
+            PerformanceSummary {
+                id: p.id,
+                title: p.title,
+                play_count: p.play_count,
+                duration: p.duration,
+                performance_date: p.performance_date,
+                singers,
+            }
+        })
+        .collect();
+
+    Ok(Json(items))
 }
 
 #[utoipa::path(

@@ -8,7 +8,8 @@ use axum::{
 use uuid::Uuid;
 
 use api_types::{
-    common::ErrorResponse,
+    common::{ArtistInfo, ErrorResponse},
+    performances::PerformanceSummary,
     playlists::{PlaylistKind, PlaylistResponse},
 };
 use db::queries;
@@ -18,7 +19,7 @@ use crate::{auth::middleware::AuthUser, capabilities, error::ApiError, state::Ap
 #[derive(utoipa::OpenApi)]
 #[openapi(
     paths(list_user_playlists, get_user_favorites),
-    components(schemas(PlaylistResponse, PlaylistKind, ErrorResponse))
+    components(schemas(PlaylistResponse, PlaylistKind, PerformanceSummary, ErrorResponse))
 )]
 pub(crate) struct UsersApi;
 
@@ -95,7 +96,7 @@ pub(crate) async fn list_user_playlists(
     path = "/api/users/{id}/favorites",
     params(("id" = Uuid, Path, description = "User ID")),
     responses(
-        (status = 200, description = "Ordered performance IDs in this user's favorites playlist.", body = Vec<Uuid>),
+        (status = 200, description = "Ordered performances in this user's favorites playlist.", body = Vec<PerformanceSummary>),
         (status = 403, description = "Forbidden", body = ErrorResponse),
         (status = 404, description = "User not found", body = ErrorResponse),
     ),
@@ -105,7 +106,7 @@ pub(crate) async fn get_user_favorites(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
     auth: Option<AuthUser>,
-) -> Result<Json<Vec<Uuid>>, ApiError> {
+) -> Result<Json<Vec<PerformanceSummary>>, ApiError> {
     if !can_view_private(&auth, id) {
         return Err(ApiError::Forbidden);
     }
@@ -118,6 +119,35 @@ pub(crate) async fn get_user_favorites(
         .await?
         .ok_or(ApiError::NotFound)?;
 
-    let ids = queries::playlists::get_performance_ids(&state.pool, playlist.id).await?;
-    Ok(Json(ids))
+    let performances =
+        queries::playlists::get_performances_in_playlist(&state.pool, playlist.id).await?;
+    let perf_ids: Vec<Uuid> = performances.iter().map(|p| p.id).collect();
+    let mut singers_by_perf =
+        queries::performances::get_singers_batch(&state.pool, &perf_ids).await?;
+
+    let items = performances
+        .into_iter()
+        .map(|p| {
+            let singers = singers_by_perf
+                .remove(&p.id)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|a| ArtistInfo {
+                    id: a.id,
+                    name: a.name,
+                    description: a.description,
+                })
+                .collect();
+            PerformanceSummary {
+                id: p.id,
+                title: p.title,
+                play_count: p.play_count,
+                duration: p.duration,
+                performance_date: p.performance_date,
+                singers,
+            }
+        })
+        .collect();
+
+    Ok(Json(items))
 }
