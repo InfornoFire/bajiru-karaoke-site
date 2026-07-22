@@ -102,6 +102,7 @@ pub(crate) async fn list_playlists(
     params(("id" = Uuid, Path, description = "Playlist ID")),
     responses(
         (status = 200, description = "Playlist detail", body = PlaylistResponse),
+        (status = 403, description = "Forbidden", body = ErrorResponse),
         (status = 404, description = "Not found", body = ErrorResponse),
     ),
     tag = "playlists"
@@ -109,10 +110,24 @@ pub(crate) async fn list_playlists(
 pub(crate) async fn get_playlist(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    auth: Option<AuthUser>,
 ) -> Result<Json<PlaylistResponse>, ApiError> {
     let playlist = queries::playlists::get_by_id(&state.pool, id)
         .await?
         .ok_or(ApiError::NotFound)?;
+
+    if !playlist.is_public {
+        let can_view = auth.as_ref().is_some_and(|u| {
+            playlist.created_by == Some(u.user_id)
+                || u.capabilities
+                    .iter()
+                    .any(|c| c == capabilities::VIEW_PRIVATE_PLAYLISTS)
+        });
+        if !can_view {
+            return Err(ApiError::Forbidden);
+        }
+    }
+
     Ok(Json(convert::playlist_response(playlist)?))
 }
 
@@ -163,6 +178,8 @@ pub(crate) async fn create_playlist(
     request_body = UpdatePlaylistRequest,
     responses(
         (status = 200, description = "Updated playlist", body = PlaylistResponse),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+        (status = 403, description = "Forbidden", body = ErrorResponse),
         (status = 404, description = "Not found", body = ErrorResponse),
     ),
     tag = "playlists"
@@ -170,8 +187,17 @@ pub(crate) async fn create_playlist(
 pub(crate) async fn update_playlist(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    auth: AuthUser,
     Json(req): Json<UpdatePlaylistRequest>,
 ) -> Result<Json<PlaylistResponse>, ApiError> {
+    let existing = queries::playlists::get_by_id(&state.pool, id)
+        .await?
+        .ok_or(ApiError::NotFound)?;
+
+    if existing.created_by != Some(auth.user_id) {
+        return Err(ApiError::Forbidden);
+    }
+
     let mut conn = state.pool.acquire().await.map_err(DbError::Sqlx)?;
     let playlist = queries::playlists::update(
         &mut conn,
@@ -194,6 +220,8 @@ pub(crate) async fn update_playlist(
     params(("id" = Uuid, Path, description = "Playlist ID")),
     responses(
         (status = 204, description = "Deleted"),
+        (status = 401, description = "Not authenticated", body = ErrorResponse),
+        (status = 403, description = "Forbidden", body = ErrorResponse),
         (status = 404, description = "Not found", body = ErrorResponse),
     ),
     tag = "playlists"
@@ -201,13 +229,18 @@ pub(crate) async fn update_playlist(
 pub(crate) async fn delete_playlist(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    auth: AuthUser,
 ) -> Result<StatusCode, ApiError> {
-    let found = queries::playlists::delete(&state.pool, id).await?;
-    if found {
-        Ok(StatusCode::NO_CONTENT)
-    } else {
-        Err(ApiError::NotFound)
+    let playlist = queries::playlists::get_by_id(&state.pool, id)
+        .await?
+        .ok_or(ApiError::NotFound)?;
+
+    if playlist.created_by != Some(auth.user_id) {
+        return Err(ApiError::Forbidden);
     }
+
+    queries::playlists::delete(&state.pool, id).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 #[utoipa::path(
